@@ -38,7 +38,6 @@ jobs:
           if ! az postgres flexible-server show \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.POSTGRES_SERVER_NAME }} &> /dev/null; then
-
             echo "Creating PostgreSQL flexible server..."
             az postgres flexible-server create \
               --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
@@ -66,11 +65,9 @@ jobs:
             --rule-name AllowAzureServices \
             --start-ip-address 0.0.0.0 \
             --end-ip-address 0.0.0.0 || true
-
           # Get current GitHub Actions IP
           GITHUB_IP=$(curl -s https://api.ipify.org)
           echo "GitHub Actions IP: $GITHUB_IP"
-
           # Allow GitHub Actions IP
           az postgres flexible-server firewall-rule create \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
@@ -78,7 +75,6 @@ jobs:
             --rule-name AllowGitHubActions \
             --start-ip-address $GITHUB_IP \
             --end-ip-address $GITHUB_IP || true
-
           # Wait for firewall rules to be applied
           sleep 30
 
@@ -96,7 +92,6 @@ jobs:
           # Install PostgreSQL client
           sudo apt-get update
           sudo apt-get install -y postgresql-client
-
           # Run initialization script
           psql \
             -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
@@ -111,7 +106,6 @@ jobs:
           if ! az redis show \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.REDIS_CACHE_NAME }} &> /dev/null; then
-
             echo "Creating Redis Cache..."
             az redis create \
               --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
@@ -120,7 +114,6 @@ jobs:
               --sku Basic \
               --vm-size c0 \
               --tags Environment=Development Project=M365LicenseOptimizer
-
             # Configure non-SSL port separately (if needed)
             az redis update \
               --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
@@ -131,43 +124,43 @@ jobs:
           fi
 
       - name: Configure Redis Settings
-  run: |
-    # Wait for Redis to be ready
-    echo "Waiting for Redis to be fully provisioned..."
-    sleep 60
-    
-    # Check if Redis is ready
-    for i in {1..10}; do
-      if az redis show \
-        --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-        --name ${{ env.REDIS_CACHE_NAME }} \
-        --query provisioningState -o tsv | grep -q "Succeeded"; then
-        echo "Redis is ready!"
-        break
-      else
-        echo "Attempt $i/10: Redis still provisioning, waiting 30 seconds..."
-        sleep 30
-      fi
-    done
-    
-    # Configure patch schedule (optional)
-    echo "Configuring maintenance schedule..."
-    az redis patch-schedule create \
-      --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-      --name ${{ env.REDIS_CACHE_NAME }} \
-      --schedule-entries '[{
-        "dayOfWeek": "Sunday",
-        "startHourUtc": 2,
-        "maintenanceWindow": "PT5H"
-      }]' 2>/dev/null || echo "Patch schedule configuration skipped (may already exist)"
-    
-    # Get Redis information
-    echo "Redis Cache Information:"
-    az redis show \
-      --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-      --name ${{ env.REDIS_CACHE_NAME }} \
-      --query '{name:name,hostName:hostName,port:port,sslPort:sslPort,provisioningState:provisioningState}' \
-      --output table
+        run: |
+          # Wait for Redis to be ready
+          echo "Waiting for Redis to be fully provisioned..."
+          sleep 60
+          
+          # Check if Redis is ready
+          for i in {1..10}; do
+            if az redis show \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --name ${{ env.REDIS_CACHE_NAME }} \
+              --query provisioningState -o tsv | grep -q "Succeeded"; then
+              echo "Redis is ready!"
+              break
+            else
+              echo "Attempt $i/10: Redis still provisioning, waiting 30 seconds..."
+              sleep 30
+            fi
+          done
+          
+          # Configure patch schedule (optional)
+          echo "Configuring maintenance schedule..."
+          az redis patch-schedule create \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.REDIS_CACHE_NAME }} \
+            --schedule-entries '[{
+              "dayOfWeek": "Sunday",
+              "startHourUtc": 2,
+              "maintenanceWindow": "PT5H"
+            }]' 2>/dev/null || echo "Patch schedule configuration skipped (may already exist)"
+          
+          # Get Redis information
+          echo "Redis Cache Information:"
+          az redis show \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.REDIS_CACHE_NAME }} \
+            --query '{name:name,hostName:hostName,port:port,sslPort:sslPort,provisioningState:provisioningState}' \
+            --output table
 
       - name: Get Connection Strings
         run: |
