@@ -1,0 +1,76 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: m365_optimizer_db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-m365_optimizer}
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-m365_optimizer}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - m365_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: m365_optimizer_redis
+    restart: always
+    ports:
+      - '6379:6379'
+    command: >
+      redis-server 
+      --save 60 1 
+      --loglevel warning 
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-changeme}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - m365_network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: m365_optimizer_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@m365optimizer.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-changeme}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - '5050:80'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
+    networks:
+      - m365_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  m365_network:
+    driver: bridge
