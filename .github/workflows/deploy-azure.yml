@@ -7,7 +7,7 @@ on:
 
 env:
   AZURE_RESOURCE_GROUP: m365-optimizer-dev
-  AZURE_LOCATION: westeurope
+  AZURE_LOCATION: francecentral
   POSTGRES_SERVER_NAME: m365optimizerdb
   REDIS_CACHE_NAME: m365optimizerredis
 
