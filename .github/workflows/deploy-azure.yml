@@ -131,18 +131,43 @@ jobs:
           fi
 
       - name: Configure Redis Settings
-        run: |
-          # Wait for Redis to be ready
-          sleep 60
-
-          # Update Redis configuration
-          az redis patch-schedule create \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --name ${{ env.REDIS_CACHE_NAME }} \
-            --schedule-entry day-of-week=Sunday start-hour-utc=2 maintenance-window=PT5H || true
-
-          # Note: maxmemory-policy is set via Azure Portal or ARM template
-          # Basic tier uses allkeys-lru by default
+  run: |
+    # Wait for Redis to be ready
+    echo "Waiting for Redis to be fully provisioned..."
+    sleep 60
+    
+    # Check if Redis is ready
+    for i in {1..10}; do
+      if az redis show \
+        --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+        --name ${{ env.REDIS_CACHE_NAME }} \
+        --query provisioningState -o tsv | grep -q "Succeeded"; then
+        echo "Redis is ready!"
+        break
+      else
+        echo "Attempt $i/10: Redis still provisioning, waiting 30 seconds..."
+        sleep 30
+      fi
+    done
+    
+    # Configure patch schedule (optional)
+    echo "Configuring maintenance schedule..."
+    az redis patch-schedule create \
+      --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+      --name ${{ env.REDIS_CACHE_NAME }} \
+      --schedule-entries '[{
+        "dayOfWeek": "Sunday",
+        "startHourUtc": 2,
+        "maintenanceWindow": "PT5H"
+      }]' 2>/dev/null || echo "Patch schedule configuration skipped (may already exist)"
+    
+    # Get Redis information
+    echo "Redis Cache Information:"
+    az redis show \
+      --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+      --name ${{ env.REDIS_CACHE_NAME }} \
+      --query '{name:name,hostName:hostName,port:port,sslPort:sslPort,provisioningState:provisioningState}' \
+      --output table
 
       - name: Get Connection Strings
         run: |
