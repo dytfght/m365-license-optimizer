@@ -50,7 +50,8 @@ jobs:
               --version 17 \
               --storage-size 32 \
               --backup-retention 7 \
-              --tags Environment=Development Project=M365LicenseOptimizer
+              --tags Environment=Development Project=M365LicenseOptimizer \
+              --yes
           else
             echo "PostgreSQL server already exists"
           fi
