@@ -14,10 +14,7 @@ SET search_path TO optimizer, public;
 -- Create Extensions (Azure Flexible Server compatible)
 -- ============================================
 
--- Enable UUID extension (required for uuid_generate_v4)
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Enable pgcrypto for encryption functions (useful for future features)
+-- Enable pgcrypto extension for gen_random_uuid()
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ============================================
@@ -86,7 +83,7 @@ END $$;
 
 -- Tenant clients table
 CREATE TABLE IF NOT EXISTS optimizer.tenant_clients (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id VARCHAR(36) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
     country VARCHAR(2) NOT NULL DEFAULT 'FR',
@@ -99,7 +96,7 @@ CREATE TABLE IF NOT EXISTS optimizer.tenant_clients (
 
 -- Tenant app registrations table
 CREATE TABLE IF NOT EXISTS optimizer.tenant_app_registrations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_client_id UUID NOT NULL REFERENCES optimizer.tenant_clients(id) ON DELETE CASCADE,
     client_id VARCHAR(36) NOT NULL,
     client_secret_encrypted TEXT,
@@ -115,7 +112,7 @@ CREATE TABLE IF NOT EXISTS optimizer.tenant_app_registrations (
 
 -- Analysis runs table
 CREATE TABLE IF NOT EXISTS optimizer.analyses (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_client_id UUID NOT NULL REFERENCES optimizer.tenant_clients(id) ON DELETE CASCADE,
     execution_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     duration_seconds NUMERIC(10, 2),
@@ -130,7 +127,7 @@ CREATE TABLE IF NOT EXISTS optimizer.analyses (
 
 -- Audit logs table
 CREATE TABLE IF NOT EXISTS optimizer.audit_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     table_name VARCHAR(100) NOT NULL,
     operation VARCHAR(10) NOT NULL,
     old_data JSONB,
@@ -259,7 +256,7 @@ LEFT JOIN LATERAL (
 ) a ON true;
 
 -- ============================================
--- Database Configuration
+-- Database Configuration and Comments
 -- ============================================
 
 -- Comment on schema and tables
@@ -277,13 +274,10 @@ BEGIN
     RAISE NOTICE '========================================';
     RAISE NOTICE 'M365 License Optimizer Database Initialized Successfully';
     RAISE NOTICE 'Schema: optimizer';
-    RAISE NOTICE 'Tables: %, %, %, %', 
-        'tenant_clients', 
-        'tenant_app_registrations', 
-        'analyses', 
-        'audit_logs';
+    RAISE NOTICE 'Tables: tenant_clients, tenant_app_registrations, analyses, audit_logs';
     RAISE NOTICE 'Roles: m365_app_user, m365_readonly';
-    RAISE NOTICE 'Extensions: uuid-ossp, pgcrypto';
+    RAISE NOTICE 'Extensions: pgcrypto';
+    RAISE NOTICE 'UUID Generation: gen_random_uuid()';
     RAISE NOTICE '========================================';
 END
 $$;
