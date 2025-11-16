@@ -47,7 +47,7 @@ jobs:
               --admin-password "${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
               --sku-name Standard_B1ms \
               --tier Burstable \
-              --version 15 \
+              --version 17 \
               --storage-size 32 \
               --backup-retention 7 \
               --tags Environment=Development Project=M365LicenseOptimizer
