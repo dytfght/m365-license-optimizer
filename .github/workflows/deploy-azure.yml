@@ -34,23 +34,22 @@ jobs:
       - name: Deploy PostgreSQL Server
         run: |
           # Check if server exists
-          if ! az postgres server show \
+          if ! az postgres flexible-server show \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.POSTGRES_SERVER_NAME }} &> /dev/null; then
             
-            echo "Creating PostgreSQL server..."
-            az postgres server create \
+            echo "Creating PostgreSQL flexible server..."
+            az postgres flexible-server create \
               --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
               --name ${{ env.POSTGRES_SERVER_NAME }} \
               --location ${{ env.AZURE_LOCATION }} \
               --admin-user adminuser \
               --admin-password "${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
-              --sku-name B_Gen5_1 \
+              --sku-name Standard_B1ms \
+              --tier Burstable \
               --version 15 \
-              --storage-size 51200 \
+              --storage-size 32 \
               --backup-retention 7 \
-              --geo-redundant-backup Disabled \
-              --ssl-enforcement Enabled \
               --tags Environment=Development Project=M365LicenseOptimizer
           else
             echo "PostgreSQL server already exists"
@@ -59,28 +58,28 @@ jobs:
       - name: Configure PostgreSQL Firewall
         run: |
           # Allow Azure services
-          az postgres server firewall-rule create \
+          az postgres flexible-server firewall-rule create \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --server-name ${{ env.POSTGRES_SERVER_NAME }} \
-            --name AllowAzureServices \
+            --name ${{ env.POSTGRES_SERVER_NAME }} \
+            --rule-name AllowAzureServices \
             --start-ip-address 0.0.0.0 \
             --end-ip-address 0.0.0.0 || true
           
           # Allow GitHub Actions (if needed for init)
           GITHUB_IP=$(curl -s https://api.ipify.org)
-          az postgres server firewall-rule create \
+          az postgres flexible-server firewall-rule create \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --server-name ${{ env.POSTGRES_SERVER_NAME }} \
-            --name AllowGitHubActions \
+            --name ${{ env.POSTGRES_SERVER_NAME }} \
+            --rule-name AllowGitHubActions \
             --start-ip-address $GITHUB_IP \
             --end-ip-address $GITHUB_IP || true
       
       - name: Create PostgreSQL Database
         run: |
-          az postgres db create \
+          az postgres flexible-server db create \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --server-name ${{ env.POSTGRES_SERVER_NAME }} \
-            --name m365_optimizer || true
+            --database-name m365_optimizer || true
       
       - name: Initialize PostgreSQL Schema
         env:
