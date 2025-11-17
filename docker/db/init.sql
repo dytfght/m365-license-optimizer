@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS optimizer.tenant_clients (
     country VARCHAR(2) NOT NULL DEFAULT 'FR',
     language VARCHAR(5) NOT NULL DEFAULT 'fr-FR',
     onboarding_status optimizer.onboarding_status DEFAULT 'pending',
-    metadata JSONB DEFAULT '{}',
+    metadatas JSONB DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -222,7 +222,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA optimizer GRANT SELECT ON TABLES TO m365_read
 -- ============================================
 
 -- Insert sample tenant for testing
-INSERT INTO optimizer.tenant_clients (tenant_id, name, country, language, onboarding_status, metadata)
+INSERT INTO optimizer.tenant_clients (tenant_id, name, country, language, onboarding_status, metadatas)
 VALUES 
     ('12345678-1234-1234-1234-123456789012', 'Contoso Ltd', 'FR', 'fr-FR', 'pending', '{"industry": "technology", "size": "medium"}'),
     ('87654321-4321-4321-4321-210987654321', 'Fabrikam Inc', 'US', 'en-US', 'pending', '{"industry": "manufacturing", "size": "large"}')
