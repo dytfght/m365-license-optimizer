@@ -1,53 +1,68 @@
 """
 Application configuration using Pydantic Settings
 """
+import os
 from typing import Literal
-
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
-    
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../.env')),
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra='ignore'  # Ignore extra fields from .env that aren't defined here
     )
-    
     # Application
     APP_NAME: str = "M365 License Optimizer"
     APP_VERSION: str = "0.1.0"
     ENVIRONMENT: Literal["development", "test", "production"] = "development"
     LOG_LEVEL: str = "INFO"
-    
     # Database
+    POSTGRES_DB: str
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_HOST: str
+    POSTGRES_PORT: int
     DATABASE_URL: str
-    
     # Redis
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
-    
+    REDIS_PASSWORD: str
     # Azure AD (Partner Authentication)
     AZURE_AD_TENANT_ID: str
     AZURE_AD_CLIENT_ID: str
     AZURE_AD_CLIENT_SECRET: str
     AZURE_AD_AUTHORITY: str = Field(default="")
-    
     # JWT
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    
     # Microsoft Graph
     GRAPH_API_BASE_URL: str = "https://graph.microsoft.com/v1.0"
     GRAPH_API_SCOPES: str = "https://graph.microsoft.com/.default"
-    
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+
+    @model_validator(mode='after')
+    def assemble_connections(self) -> 'Settings':
+        # Interpolate DATABASE_URL if it contains placeholders
+        if '%(POSTGRES_USER)s' in self.DATABASE_URL:
+            self.DATABASE_URL = self.DATABASE_URL % {
+                'POSTGRES_USER': self.POSTGRES_USER,
+                'POSTGRES_PASSWORD': self.POSTGRES_PASSWORD,
+                'POSTGRES_HOST': self.POSTGRES_HOST,
+                'POSTGRES_PORT': self.POSTGRES_PORT,
+                'POSTGRES_DB': self.POSTGRES_DB,
+            }
+        # Interpolate AZURE_AD_AUTHORITY if it contains placeholder
+        if '${AZURE_AD_TENANT_ID}' in self.AZURE_AD_AUTHORITY:
+            self.AZURE_AD_AUTHORITY = self.AZURE_AD_AUTHORITY.replace('${AZURE_AD_TENANT_ID}', self.AZURE_AD_TENANT_ID)
+        # Fallback for AZURE_AD_AUTHORITY if still empty
         if not self.AZURE_AD_AUTHORITY:
             self.AZURE_AD_AUTHORITY = f"https://login.microsoftonline.com/{self.AZURE_AD_TENANT_ID}"
+        return self
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 settings = Settings()
