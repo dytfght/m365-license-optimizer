@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     AZURE_AD_CLIENT_ID: str
     AZURE_AD_CLIENT_SECRET: str
     AZURE_AD_AUTHORITY: str = Field(default="")
+    # CORS
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:8000",
+    ]
+    
+    # API
+    API_V1_PREFIX: str = "/api/v1"
+    
     # JWT
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
