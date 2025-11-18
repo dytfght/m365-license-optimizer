@@ -1,95 +1,88 @@
-name: 🚀 Deploy M365 License Optimizer to Azure (Full Stack)
+name: Deploy to Azure
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, lot2 ]          # active aussi sur lot2 pour tests
   workflow_dispatch:
 
 env:
   AZURE_RESOURCE_GROUP: m365-optimizer-dev
   AZURE_LOCATION: francecentral
-  POSTGRES_SERVER_NAME: m365optimizerdb-${{ github.run_id }}-${{ github.run_attempt }}  # unique per run
+  POSTGRES_SERVER_NAME: m365optimizerdb               # NOM FIXE → plus de conflit
   POSTGRES_DATABASE_NAME: m365_optimizer
   POSTGRES_ADMIN_USER: adminuser
-  REDIS_CACHE_NAME: m365optimizerredis-${{ github.run_id }}
-  AZURE_CONTAINER_REGISTRY: m365optimizeracr
-  AZURE_WEBAPP_BACKEND: m365-optimizer-backend
-  AZURE_WEBAPP_FRONTEND: m365-optimizer-frontend
+  REDIS_CACHE_NAME: m365optimizerredis                 # NOM FIXE
+  ACR_NAME: m365optimizeracr
+  WEBAPP_BACKEND_NAME: m365-optimizer-backend
 
 jobs:
-  deploy-full-infra-and-apps:
+  deploy:
     runs-on: ubuntu-latest
-    environment: development
-    timeout-minutes: 45
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # ===================================
-      # 1. Infrastructure (Resource Group + Postgres + Redis + ACR)
-      # ===================================
       - name: Create Resource Group
         run: |
-          az group create --name ${{ env.AZURE_RESOURCE_GROUP }} --location ${{ env.AZURE_LOCATION }} --tags Environment=Dev Project=M365Optimizer || true
+          az group create --name ${{ env.AZURE_RESOURCE_GROUP }} --location ${{ env.AZURE_LOCATION }} --tags Environment=Dev || true
 
-      - name: Deploy PostgreSQL Flexible Server (idempotent)
-        id: postgres
+      - name: Deploy PostgreSQL Flexible Server (idempotent + SKU corrigé)
         run: |
-          if ! az postgres flexible-server show -g ${{ env.AZURE_RESOURCE_GROUP }} -n ${{ env.POSTGRES_SERVER_NAME }} &> /dev/null; then
-            echo "Creating new PostgreSQL server..."
+          if ! az postgres flexible-server show --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name ${{ env.POSTGRES_SERVER_NAME }} &> /dev/null; then
+            echo "Creating PostgreSQL server..."
             az postgres flexible-server create \
               --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
               --name ${{ env.POSTGRES_SERVER_NAME }} \
               --location ${{ env.AZURE_LOCATION }} \
               --admin-user ${{ env.POSTGRES_ADMIN_USER }} \
               --admin-password "${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
+              --tier Burstable \
               --sku-name Standard_B2s \
               --version 16 \
               --storage-size 128 \
-              --tier GeneralPurpose \
-              --public-access 0.0.0.0 \
+              --public-access 0.0.0.0-255.255.255.255 \
               --yes
           else
             echo "PostgreSQL server already exists"
           fi
-          echo "server_name=${{ env.POSTGRES_SERVER_NAME }}" >> $GITHUB_OUTPUT
 
-      - name: Allow GitHub Actions IP in PostgreSQL Firewall
+      - name: Configure PostgreSQL Firewall (Azure services + GitHub IP)
         run: |
-          IP=$(curl -s https://api.ipify.org)
           az postgres flexible-server firewall-rule create \
-            -g ${{ env.AZURE_RESOURCE_GROUP }} \
-            -n ${{ env.POSTGRES_SERVER_NAME }} \
-            --name GitHubActions \
-            --start-ip-address $IP \
-            --end-ip-address $IP || true
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.POSTGRES_SERVER_NAME }} \
+            --rule-name AllowAzureServices \
+            --start-ip-address 0.0.0.0 \
+            --end-ip-address 0.0.0.0 || true
+            
+          GITHUB_IP=$(curl -s https://api.ipify.org)
+          az postgres flexible-server firewall-rule create \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.POSTGRES_SERVER_NAME }} \
+            --rule-name GitHubActions \
+            --start-ip-address $GITHUB_IP \
+            --end-ip-address $GITHUB_IP || true
 
-      - name: Create Database + Run init.sql (Alembic-ready schema)
+      - name: Create Database & Run init.sql
         env:
           PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
-          until psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com -U ${{ env.POSTGRES_ADMIN_USER }} -d postgres -c "SELECT 1"; do
-            echo "Waiting for PostgreSQL..."
-            sleep 5
-          done
-          psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com -U ${{ env.POSTGRES_ADMIN_USER }} -d postgres -c "CREATE DATABASE ${{ env.POSTGRES_DATABASE_NAME }};" || true
-          psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com -U ${{ env.POSTGRES_ADMIN_USER }} -d ${{ env.POSTGRES_DATABASE_NAME }} -f docker/db/init.sql --set=sslmode=require
+          psql
+          psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com -U ${{ env.POSTGRES_ADMIN_USER }}@${{ env.POSTGRES_SERVER_NAME }} -d postgres -c "CREATE DATABASE ${{ env.POSTGRES_DATABASE_NAME }};" || true
+          psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com -U ${{ env.POSTGRES_ADMIN_USER }}@${{ env.POSTGRES_SERVER_NAME }} -d ${{ env.POSTGRES_DATABASE_NAME }} -f docker/db/init.sql --set=sslmode=require
 
       - name: Deploy Redis Cache (idempotent)
         run: |
-          if ! az redis show -g ${{ env.AZURE_RESOURCE_GROUP }} -n ${{ env.REDIS_CACHE_NAME }} &> /dev/null; then
+          if ! az redis show --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name ${{ env.REDIS_CACHE_NAME }} &> /dev/null; then
             az redis create \
-              -g ${{ env.AZURE_RESOURCE_GROUP }} \
-              -n ${{ env.REDIS_CACHE_NAME }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --name ${{ env.REDIS_CACHE_NAME }} \
               --location ${{ env.AZURE_LOCATION }} \
               --sku Standard \
               --vm-size C1
@@ -97,82 +90,54 @@ jobs:
 
       - name: Create Azure Container Registry (if not exists)
         run: |
-          if ! az acr show -n ${{ env.AZURE_CONTAINER_REGISTRY }} -g ${{ env.AZURE_RESOURCE_GROUP }} &> /dev/null; then
-            az acr create -n ${{ env.AZURE_CONTAINER_REGISTRY }} -g ${{ env.AZURE_RESOURCE_GROUP }} --sku Standard --admin-enabled true
+          if ! az acr show --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name ${{ env.ACR_NAME &> /dev/null; then
+            az acr create --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name ${{ env.ACR_NAME }} --sku Standard --admin-enabled true
           fi
-          az acr update -n ${{ env.AZURE_CONTAINER_REGISTRY }} --anonymous-pull-enabled true  # pour frontend static
 
-      # ===================================
-      # 2. Build & Deploy Backend (FastAPI) - Lot 3 prêt
-      # ==
-      - name: Log in to ACR
-        run: az acr login --name ${{ env.AZURE_CONTAINER_REGISTRY }}
+      - name: Login to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
 
-      - name: Build and push backend image
+      - name: Build & Push Backend Docker Image
         run: |
-          docker build -f backend/Dockerfile -t ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/m365-optimizer-backend:${{ github.sha }} -t ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/m365-optimizer-backend:latest .
-          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/m365-optimizer-backend:${{ github.sha }}
-          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/m365-optimizer-backend:latest
+          docker build -f backend/Dockerfile -t ${{ env.ACR_NAME }}.azurecr.io/m365-optimizer-backend:latest .
+          docker push ${{ env.ACR_NAME }}.azurecr.io/m365-optimizer-backend:latest
 
-      - name: Deploy Backend to Azure App Service (Linux)
+      - name: Deploy Backend to Azure Web App for Containers
         run: |
           az webapp create \
-            -g ${{ env.AZURE_RESOURCE_GROUP }} \
-            -p ${{ env.AZURE_CONTAINER_REGISTRY }} \
-            -n ${{ env.AZURE_WEBAPP_BACKEND }} \
-            --deployment-container-image-name m365-optimizer-backend:latest \
-            --assign-identity [system] || true
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --plan ${{ env.AZURE_RESOURCE_GROUP }}-plan \
+            --name ${{ env.WEBAPP_BACKEND_NAME }} \
+            --deployment-container-image-name ${{ env.ACR_NAME }}.azurecr.io/m365-optimizer-backend:latest || true
           
           az webapp config container set \
-            -g ${{ env.AZURE_RESOURCE_GROUP }} -n ${{ env.AZURE_WEBAPP_BACKEND }} \
-            --docker-registry-server-url https://${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io \
-            --docker-registry-server-user ${{ env.AZURE_CONTAINER_REGISTRY }} \
-            --docker-registry-server-password $(az acr credential show -n ${{ env.AZURE_CONTAINER_REGISTRY }} --query passwords[0].value -o tsv)
-          
-          az webapp config appsettings set -g ${{ env.AZURE_RESOURCE_GROUP }} -n ${{ env.AZURE_WEBAPP_BACKEND }} \
-            --settings \
-              DATABASE_URL=postgresql://${{ env.POSTGRES_ADMIN_USER }}:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com:5432/${{ env.POSTGRES_DATABASE_NAME }}?sslmode=require \
-              REDIS_URL=rediss://${{ env.REDIS_CACHE_NAME }}.redis.cache.windows.net:6380,password=$(az redis list-keys -g ${{ env.AZURE_RESOURCE_GROUP }} -n ${{ env.REDIS_CACHE_NAME }} --query primaryKey -o tsv),ssl=True,abortConnect=False \
-              AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }} \
-              AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }} \
-              AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}
-
-          az webapp restart -g ${{ env.AZURE_RESOURCE_GROUP }} -n ${{ env.AZURE_WEBAPP_BACKEND }}
-
-      # ===================================
-      # 3. Deploy Frontend (React/Vue/whatever) - Lot 12 prêt
-      # ===================================
-      - name: Build and deploy frontend (static site via storage account ou App Service)
-        run: |
-          # Si tu passes à React/Vite/Vue plus tard, on mettra un build + az storage blob upload-batch
-          # Pour l’instant, on crée juste le webapp vide prêt à recevoir le frontend
-          az webapp up \
+            --name ${{ env.WEBAPP_BACKEND_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --name ${{ env.AZURE_WEBAPP_FRONTEND }} \
-            --location ${{ env.AZURE_LOCATION }} \
-            --plan ${{ env.AZURE_RESOURCE_GROUP }} \
-            --sku B1 \
-            --os-type Linux \
-            --runtime "NODE:18-lts" \
-            || az webapp config appsettings set -g ${{ env.AZURE_RESOURCE_GROUP }} -n ${{ env.AZURE_WEBAPP_FRONTEND }} --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true
+            --docker-registry-server-url https://${{ env.ACR_NAME }}.azurecr.io \
+            --docker-registry-server-user ${{ env.ACR_NAME }} \
+            --docker-registry-server-password $(az acr credential show --name ${{ env.ACR_NAME }} --query passwords[0].value -o tsv)
+          
+          az webapp config appsettings set \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.WEBAPP_BACKEND_NAME }} \
+            --settings \
+              DATABASE_URL="postgresql://${{ env.POSTGRES_ADMIN_USER }}:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com:5432/${{ env.POSTGRES_DATABASE_NAME }}?sslmode=require" \
+              REDIS_URL="rediss://${{ env.REDIS_CACHE_NAME }}.redis.cache.windows.net:6380,password=$(az redis list-keys --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name ${{ env.REDIS_CACHE_NAME }} --query primaryKey -o tsv),ssl=True" \
+              WEBSITES_PORT=8000
+          
+          az webapp restart --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name ${{ env.WEBAPP_BACKEND_NAME }}
 
-      # ===================================
-      # 4. Final tests & output
-      # ===================================
-      - name: Health check backend
+      - name: Output URLs & Infos
         run: |
-          sleep 60
-          curl -f https://${{ env.AZURE_WEBAPP_BACKEND }}.azurewebsites.net/health || echo "Health check failed (normal if backend not yet ready)"
-
-      - name: Output URLs
-        run: |
-          echo "🚀 Déploiement terminé avec succès !"
-          echo ""
-          echo "Backend URL : https://${{ env.AZURE_WEBAPP_BACKEND }}.azurewebsites.net"
-          echo "Frontend URL : https://${{ env.AZURE_WEBAPP_FRONTEND }}.azurewebsites.net"
+          echo "=================================="
+          echo "Déploiement terminé avec succès !"
+          echo "=================================="
+          echo "Backend URL : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net"
           echo "PostgreSQL : ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com"
           echo "Redis : ${{ env.REDIS_CACHE_NAME }}.redis.cache.windows.net"
-          echo ""
-          echo "Tag GitHub créé : deployment-$(date +%Y%m%d-%H%M%S)"
-          git tag -a deployment-$(date +%Y%m%d-%H%M%S) -m "Deployed by GitHub Actions" --force
-          git push origin --tags --force
+          echo "Swagger UI : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/docs"
+
+      - name: Tag deployment
+        run: |
+          git tag deployment-$(date +%Y%m%d-%H%M) 
+          git push origin --tags || true
