@@ -1,0 +1,140 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-7.4.3, pluggy-1.6.0 -- /mnt/d/Doc G/Projets/m365-license-optimizer/backend/venv/bin/python
+cachedir: .pytest_cache
+rootdir: /mnt/d/DOC G/Projets/m365-license-optimizer/backend
+configfile: pytest.ini
+testpaths: tests
+plugins: anyio-3.7.1, asyncio-0.21.1, cov-4.1.0
+asyncio: mode=Mode.AUTO
+collecting ... collected 28 items
+
+tests/integration/test_api_tenants.py::TestTenantsAPI::test_list_tenants_empty PASSED [  3%]
+tests/integration/test_api_tenants.py::TestTenantsAPI::test_create_tenant PASSED [  7%]
+tests/integration/test_api_tenants.py::TestTenantsAPI::test_create_tenant_duplicate PASSED [ 10%]
+tests/integration/test_api_tenants.py::TestTenantsAPI::test_get_tenant_by_id PASSED [ 14%]
+tests/integration/test_api_tenants.py::TestTenantsAPI::test_get_tenant_not_found PASSED [ 17%]
+tests/integration/test_api_tenants.py::TestTenantsAPI::test_list_tenants_after_creation PASSED [ 21%]
+tests/integration/test_api_tenants.py::TestTenantsAPI::test_create_tenant_without_auth PASSED [ 25%]
+tests/integration/test_api_tenants.py::TestTenantValidationAPI::test_validate_endpoint_placeholder PASSED [ 28%]
+tests/integration/test_graph_integration.py::TestGraphAuthService::test_get_token_success FAILED [ 32%]
+tests/integration/test_graph_integration.py::TestGraphAuthService::test_get_token_cached FAILED [ 35%]
+tests/integration/test_graph_integration.py::TestGraphAuthService::test_get_token_auth_error FAILED [ 39%]
+tests/integration/test_graph_integration.py::TestGraphClient::test_get_users_success FAILED [ 42%]
+tests/integration/test_graph_integration.py::TestGraphClient::test_get_paginated_multiple_pages FAILED [ 46%]
+tests/integration/test_graph_integration.py::TestGraphClient::test_throttling_retry FAILED [ 50%]
+tests/unit/test_models.py::TestTenantClientModel::test_create_tenant_client PASSED [ 53%]
+tests/unit/test_models.py::TestTenantClientModel::test_tenant_unique_tenant_id PASSED [ 57%]
+tests/unit/test_models.py::TestTenantAppRegistrationModel::test_create_app_registration PASSED [ 60%]
+tests/unit/test_models.py::TestTenantAppRegistrationModel::test_app_registration_relationship PASSED [ 64%]
+tests/unit/test_models.py::TestUserModel::test_create_user PASSED        [ 67%]
+tests/unit/test_models.py::TestLicenseAssignmentModel::test_create_license_assignment PASSED [ 71%]
+tests/unit/test_models.py::TestLicenseAssignmentModel::test_license_unique_constraint PASSED [ 75%]
+tests/unit/test_repositories.py::TestTenantRepository::test_create_tenant PASSED [ 78%]
+tests/unit/test_repositories.py::TestTenantRepository::test_get_by_tenant_id PASSED [ 82%]
+tests/unit/test_repositories.py::TestTenantRepository::test_get_active_tenants PASSED [ 85%]
+tests/unit/test_repositories.py::TestTenantRepository::test_create_with_app_registration PASSED [ 89%]
+tests/unit/test_repositories.py::TestUserRepository::test_upsert_user_create PASSED [ 92%]
+tests/unit/test_repositories.py::TestUserRepository::test_upsert_user_update PASSED [ 96%]
+tests/unit/test_repositories.py::TestUserRepository::test_sync_licenses PASSED [100%]
+
+=================================== FAILURES ===================================
+_________________ TestGraphAuthService.test_get_token_success __________________
+tests/integration/test_graph_integration.py:40: in test_get_token_success
+    service = GraphAuthService(
+E   TypeError: GraphAuthService.__init__() got an unexpected keyword argument 'tenant_id'
+__________________ TestGraphAuthService.test_get_token_cached __________________
+tests/integration/test_graph_integration.py:68: in test_get_token_cached
+    token = await service.get_token(
+src/integrations/graph/auth.py:82: in get_token
+    if self._is_token_valid(cached):
+src/integrations/graph/auth.py:54: in _is_token_valid
+    return datetime.now(timezone.utc) + buffer < expires_at
+E   TypeError: can't compare offset-naive and offset-aware datetimes
+________________ TestGraphAuthService.test_get_token_auth_error ________________
+tests/integration/test_graph_integration.py:95: in test_get_token_auth_error
+    service = GraphAuthService(
+E   TypeError: GraphAuthService.__init__() got an unexpected keyword argument 'tenant_id'
+____________________ TestGraphClient.test_get_users_success ____________________
+tests/integration/test_graph_integration.py:145: in test_get_users_success
+    client = GraphClient(auth_service=mock_auth_service)
+E   TypeError: GraphClient.__init__() got an unexpected keyword argument 'auth_service'
+______________ TestGraphClient.test_get_paginated_multiple_pages _______________
+tests/integration/test_graph_integration.py:191: in test_get_paginated_multiple_pages
+    client = GraphClient(auth_service=mock_auth_service)
+E   TypeError: GraphClient.__init__() got an unexpected keyword argument 'auth_service'
+____________________ TestGraphClient.test_throttling_retry _____________________
+tests/integration/test_graph_integration.py:234: in test_throttling_retry
+    client = GraphClient(auth_service=mock_auth_service)
+E   TypeError: GraphClient.__init__() got an unexpected keyword argument 'auth_service'
+=============================== warnings summary ===============================
+src/main.py:41
+  /mnt/d/DOC G/Projets/m365-license-optimizer/backend/src/main.py:41: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+../../../../Doc G/Projets/m365-license-optimizer/backend/venv/lib/python3.12/site-packages/fastapi/applications.py:4547
+../../../../Doc G/Projets/m365-license-optimizer/backend/venv/lib/python3.12/site-packages/fastapi/applications.py:4547
+  /mnt/d/Doc G/Projets/m365-license-optimizer/backend/venv/lib/python3.12/site-packages/fastapi/applications.py:4547: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+src/main.py:47
+  /mnt/d/DOC G/Projets/m365-license-optimizer/backend/src/main.py:47: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+tests/integration/test_graph_integration.py::TestGraphAuthService::test_get_token_cached
+  /mnt/d/DOC G/Projets/m365-license-optimizer/backend/tests/integration/test_graph_integration.py:64: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "expires_at": datetime.utcnow() + timedelta(hours=1),
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+---------- coverage: platform linux, python 3.12.3-final-0 -----------
+Name                                    Stmts   Miss Branch BrPart  Cover   Missing
+-----------------------------------------------------------------------------------
+src/api/__init__.py                         0      0      0      0   100%
+src/api/dependencies.py                    23      3      6      2    83%   25, 52, 59
+src/api/schemas.py                         34      0      0      0   100%
+src/api/tenants.py                         51     23      0      0    55%   38, 70-73, 98-100, 118-129, 146-167, 184-190
+src/core/config.py                         42      2      6      3    90%   58->67, 68, 71
+src/core/database.py                       24     14      0      0    42%   37-45, 53-58, 66-67
+src/integrations/graph/__init__.py          4      0      0      0   100%
+src/integrations/graph/auth.py             66     40     18      4    33%   29-31, 35-36, 45, 49, 83-147, 157-168
+src/integrations/graph/client.py           96     75     24      0    18%   28-30, 34-36, 40-41, 45, 78-124, 128, 132, 151-199, 209-212, 230-253, 264-278, 290-299
+src/integrations/graph/exceptions.py       12      6      0      0    50%   9-12, 23-24
+src/main.py                                27      7      2      1    72%   44, 50-51, 58, 67, 79-81
+src/models/__init__.py                      4      0      0      0   100%
+src/models/base.py                         12      0      0      0   100%
+src/models/tenant.py                       45      2      0      0    96%   86, 173
+src/models/user.py                         41      2      0      0    95%   73, 139
+src/repositories/__init__.py                3      0      0      0   100%
+src/repositories/base.py                   42     16      4      0    57%   27-30, 37, 56-69, 73-77, 85, 89
+src/repositories/tenant_repository.py      43     12      6      0    63%   40, 96-118
+src/repositories/user_repository.py        51      7     10      2    85%   35-42, 51-58, 62-67, 85->84, 135->138
+src/services/__init__.py                    3      0      0      0   100%
+src/services/tenant_service.py             60     36     10      0    34%   55-70, 87-95, 114-183, 189, 205-226
+src/services/user_sync_service.py          49     37      6      0    22%   22-25, 37-132
+-----------------------------------------------------------------------------------
+TOTAL                                     732    282     92     12    57%
+Coverage HTML written to dir htmlcov
+
+=========================== short test summary info ============================
+FAILED tests/integration/test_graph_integration.py::TestGraphAuthService::test_get_token_success
+FAILED tests/integration/test_graph_integration.py::TestGraphAuthService::test_get_token_cached
+FAILED tests/integration/test_graph_integration.py::TestGraphAuthService::test_get_token_auth_error
+FAILED tests/integration/test_graph_integration.py::TestGraphClient::test_get_users_success
+FAILED tests/integration/test_graph_integration.py::TestGraphClient::test_get_paginated_multiple_pages
+FAILED tests/integration/test_graph_integration.py::TestGraphClient::test_throttling_retry
+================== 6 failed, 22 passed, 5 warnings in 15.04s ===================

@@ -1,7 +1,7 @@
 """
 Business logic for tenant management
 """
-from datetime import datetime
+from datetime import datetime, timezone  # ← AJOUTER timezone
 from typing import Optional
 from uuid import UUID
 
@@ -81,6 +81,9 @@ class TenantService:
         )
         await self.session.commit()
         
+        # ← CORRECTION : Rafraîchir l'objet pour obtenir created_at et autres champs de la DB
+        await self.session.refresh(tenant)
+        
         logger.info(
             "tenant_created",
             tenant_id=tenant.id,
@@ -88,11 +91,14 @@ class TenantService:
             name=name
         )
         
+        # ← CORRECTION : Retourner tous les champs requis par TenantResponse
         return {
             "id": str(tenant.id),
             "name": tenant.name,
             "tenant_id": tenant.tenant_id,
+            "country": tenant.country,  # ← AJOUTER
             "status": tenant.onboarding_status.value,
+            "created_at": tenant.created_at,  # ← AJOUTER (objet datetime, pas string)
         }
     
     async def validate_tenant_credentials(self, tenant_id: UUID) -> dict:
@@ -125,12 +131,13 @@ class TenantService:
                 org = await graph_client.get_organization()
                 
                 # Update app registration status
+                # ← CORRECTION : Utiliser timezone.utc
                 await self.repo.update_app_registration(
                     tenant_id,
                     is_valid=True,
-                    last_validated_at=datetime.utcnow(),
+                    last_validated_at=datetime.now(timezone.utc),  # ← CORRIGER
                     consent_status=ConsentStatus.GRANTED,
-                    consent_granted_at=datetime.utcnow()
+                    consent_granted_at=datetime.now(timezone.utc)  # ← CORRIGER
                 )
                 
                 # Update tenant status

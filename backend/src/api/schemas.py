@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 # Tenant schemas
@@ -31,12 +31,14 @@ class TenantCreate(BaseModel):
 
 class TenantResponse(BaseModel):
     """Schema for tenant response"""
-    id: str
+    model_config = ConfigDict(from_attributes=True)  # ← AJOUTER CETTE LIGNE
+    
+    id: UUID
     name: str
     tenant_id: str
-    country: str
+    country: Optional[str] = None  # ✓ OK
     status: str
-    created_at: str
+    created_at: datetime  # ✓ OK
 
 
 class TenantDetailResponse(TenantResponse):

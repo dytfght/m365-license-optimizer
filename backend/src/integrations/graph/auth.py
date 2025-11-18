@@ -2,7 +2,7 @@
 GR01: Microsoft Graph authentication service
 Handles client credentials flow for tenant app registrations
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import aiohttp
@@ -50,7 +50,8 @@ class GraphAuthService:
         
         # Refresh if less than 5 minutes remaining
         buffer = timedelta(minutes=5)
-        return datetime.utcnow() + buffer < expires_at
+        # ← CORRECTION : Utiliser datetime.now(timezone.utc)
+        return datetime.now(timezone.utc) + buffer < expires_at
     
     async def get_token(
         self,
@@ -122,9 +123,10 @@ class GraphAuthService:
                 expires_in = result.get("expires_in", 3600)
                 
                 # Cache token
+                # ← CORRECTION : Utiliser datetime.now(timezone.utc)
                 self._token_cache[cache_key] = {
                     "access_token": access_token,
-                    "expires_at": datetime.utcnow() + timedelta(seconds=expires_in),
+                    "expires_at": datetime.now(timezone.utc) + timedelta(seconds=expires_in),
                 }
                 
                 logger.info(
