@@ -8,7 +8,7 @@ on:
 env:
   AZURE_RESOURCE_GROUP: m365-optimizer-dev
   AZURE_LOCATION: francecentral
-  POSTGRES_SERVER_NAME: m365optimizerdb               # NOM  FIXE → plus de conflit
+  POSTGRES_SERVER_NAME: m365optimizerdb               # NOM FIXE → plus de conflit
   POSTGRES_DATABASE_NAME: m365_optimizer
   POSTGRES_ADMIN_USER: adminuser
   REDIS_CACHE_NAME: m365optimizerredis                 # NOM FIXE
