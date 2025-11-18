@@ -2,17 +2,17 @@ name: Deploy to Azure
 
 on:
   push:
-    branches: [ main, lot2 ]          # active aussi sur lot2 pour tests
+    branches: [ main, lot2 ]
   workflow_dispatch:
 
 env:
   AZURE_RESOURCE_GROUP: m365-optimizer-dev
   AZURE_LOCATION: francecentral
-  POSTGRES_SERVER_NAME: m365optimizerdb               # NOM FIXE → plus de conflit
+  POSTGRES_SERVER_NAME: m365optimizerdb              # fixe, réutilisable
   POSTGRES_DATABASE_NAME: m365_optimizer
   POSTGRES_ADMIN_USER: adminuser
-  REDIS_CACHE_NAME: m365optimizerredis                 # NOM FIXE
-  ACR_NAME: m365optimizeracr
+  REDIS_CACHE_NAME: m365optimizerredis                # fixe, réutilisable
+  ACR_NAME: m365optimizeracr                          # fixe
   WEBAPP_BACKEND_NAME: m365-optimizer-backend
 
 jobs:
@@ -31,7 +31,7 @@ jobs:
         run: |
           az group create --name ${{ env.AZURE_RESOURCE_GROUP }} --location ${{ env.AZURE_LOCATION }} --tags Environment=Dev || true
 
-      - name: Deploy PostgreSQL Flexible Server (idempotent + SKU corrigé)
+      - name: Deploy PostgreSQL Flexible Server
         run: |
           if ! az postgres flexible-server show --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name ${{ env.POSTGRES_SERVER_NAME }} &> /dev/null; then
             echo "Creating PostgreSQL server..."
@@ -51,7 +51,7 @@ jobs:
             echo "PostgreSQL server already exists"
           fi
 
-      - name: Configure PostgreSQL Firewall (Azure services + GitHub IP)
+      - name: Configure PostgreSQL Firewall
         run: |
           az postgres flexible-server firewall-rule create \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
@@ -59,7 +59,7 @@ jobs:
             --rule-name AllowAzureServices \
             --start-ip-address 0.0.0.0 \
             --end-ip-address 0.0.0.0 || true
-            
+          
           GITHUB_IP=$(curl -s https://api.ipify.org)
           az postgres flexible-server firewall-rule create \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
@@ -68,16 +68,22 @@ jobs:
             --start-ip-address $GITHUB_IP \
             --end-ip-address $GITHUB_IP || true
 
-      - name: Create Database & Run init.sql
+      - name: Create Database & Initialize Schema
         env:
           PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
-          psql
+          until psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com -U ${{ env.POSTGRES_ADMIN_USER }}@${{ env.POSTGRES_SERVER_NAME }} -d postgres -c "SELECT 1"; do
+            echo "Waiting for PostgreSQL...
+            sleep 5
+          done
+          
           psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com -U ${{ env.POSTGRES_ADMIN_USER }}@${{ env.POSTGRES_SERVER_NAME }} -d postgres -c "CREATE DATABASE ${{ env.POSTGRES_DATABASE_NAME }};" || true
-          psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com -U ${{ env.POSTGRES_ADMIN_USER }}@${{ env.POSTGRES_SERVER_NAME }} -d ${{ env.POSTGRES_DATABASE_NAME }} -f docker/db/init.sql --set=sslmode=require
+          
+          psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com -U ${{ env.POSTGRES_ADMIN_USER }}@${{ env.POSTGRES_SERVER_NAME }} -d ${{ env.POSTGRES_DATABASE_NAME }} \
+            -f docker/db/init.sql --set=sslmode=require
 
-      - name: Deploy Redis Cache (idempotent)
+      - name: Deploy Redis Cache
         run: |
           if ! az redis show --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name ${{ env.REDIS_CACHE_NAME }} &> /dev/null; then
             az redis create \
@@ -88,25 +94,29 @@ jobs:
               --vm-size C1
           fi
 
-      - name: Create Azure Container Registry (if not exists)
+      - name: Create Azure Container Registry
         run: |
-          if ! az acr show --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name ${{ env.ACR_NAME &> /dev/null; then
-            az acr create --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name ${{ env.ACR_NAME }} --sku Standard --admin-enabled true
+          if ! az acr show --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name ${{ env.ACR_NAME }} &> /dev/null; then
+            az acr create \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --name ${{ env.ACR_NAME }} \
+              --sku Standard \
+              --admin-enabled true
           fi
 
       - name: Login to ACR
         run: az acr login --name ${{ env.ACR_NAME }}
 
-      - name: Build & Push Backend Docker Image
+      - name: Build & Push Backend Image
         run: |
           docker build -f backend/Dockerfile -t ${{ env.ACR_NAME }}.azurecr.io/m365-optimizer-backend:latest .
           docker push ${{ env.ACR_NAME }}.azurecr.io/m365-optimizer-backend:latest
 
-      - name: Deploy Backend to Azure Web App for Containers
+      - name: Deploy Backend App Service (Container)
         run: |
           az webapp create \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --plan ${{ env.AZURE_RESOURCE_GROUP }}-plan \
+            --plan m365-optimizer-plan \
             --name ${{ env.WEBAPP_BACKEND_NAME }} \
             --deployment-container-image-name ${{ env.ACR_NAME }}.azurecr.io/m365-optimizer-backend:latest || true
           
@@ -127,17 +137,18 @@ jobs:
           
           az webapp restart --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name ${{ env.WEBAPP_BACKEND_NAME }}
 
-      - name: Output URLs & Infos
+      - name: Output URLs
         run: |
           echo "=================================="
-          echo "Déploiement terminé avec succès !"
+          echo "DÉPLOIEMENT RÉUSSI"
           echo "=================================="
-          echo "Backend URL : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net"
-          echo "PostgreSQL : ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com"
+          echo "Backend : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net"
+          echo "Swagger : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/docs"
+          echo "Postgres : ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com"
           echo "Redis : ${{ env.REDIS_CACHE_NAME }}.redis.cache.windows.net"
-          echo "Swagger UI : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/docs"
 
       - name: Tag deployment
         run: |
-          git tag deployment-$(date +%Y%m%d-%H%M) 
-          git push origin --tags || true
+          TAG="deploy-$(date +%Y%m%d-%H%M)"
+          git tag $TAG
+          git push origin $TAG || true
