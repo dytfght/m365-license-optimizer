@@ -9,6 +9,26 @@
 
 ---
 
+## ℹ️ Précision importante sur l'implémentation finale (18 novembre 2025)
+
+Toutes les tables, enums, indexes, triggers, vues et rôles sont créés dans le schéma **`optimizer`** (et non `public`) pour :
+- Compatibilité parfaite avec les tests d'infrastructure existants
+- Meilleure isolation et sécurité en production (Azure PostgreSQL)
+- Cohérence avec les anciens scripts d'initialisation
+
+Dans le code SQLAlchemy/Alembic, penser à systématiquement utiliser :
+```python
+__table_args__ = {'schema': 'optimizer'}
+
+Les noms complets des tables sont donc :
+
+optimizer.tenant_clients
+optimizer.users
+optimizer.license_assignments
+optimizer.usage_metrics
+etc.
+
+
 ## ✅ Critères d'acceptation
 
 ### 1. Schéma de base de données complet
@@ -543,7 +563,10 @@ pytest --cov=backend/src/models --cov-report=html
 - [x] Documentation ERD et mapping tables
 - [x] README avec commandes Alembic
 - [x] Configuration .env.example
-
+- [x] Toutes les tables créées dans le schéma `optimizer` (conforme tests-infrastructure.sh)
+- [x] Seed data Contoso Ltd / Fabrikam Inc présent de façon idempotente dans init.sql
+- [x] Vue `optimizer.v_tenant_summary` créée et fonctionnelle
+- [x] Rôles PostgreSQL `m365_app_user` et `m365_readonly` créés avec droits complets sur schema optimizer
 ---
 
 ## 🎯 Recommandations pour les lots suivants
@@ -591,4 +614,4 @@ Voir fichier `docs/database-schema.png` (généré avec ERAlchemy ou dbdiagram.i
 
 **Date de validation** : 18 novembre 2025  
 **Validé par** : @Cryptomanactus
-Version : 1.0
+Version : 1.1
