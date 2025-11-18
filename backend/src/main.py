@@ -1,6 +1,8 @@
 """
 FastAPI application entry point
 """
+from contextlib import asynccontextmanager
+
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,11 +22,32 @@ structlog.configure(
 
 logger = structlog.get_logger(__name__)
 
-# Create FastAPI app
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Manage application lifespan: startup and shutdown events.
+    """
+    # === STARTUP ===
+    logger.info("application_starting", version=settings.APP_VERSION)
+    # Si vous avez besoin d'initialiser la DB au démarrage, décommentez :
+    # await init_db()
+    logger.info("application_started", version=settings.APP_VERSION)
+    
+    yield  # Application runs here
+    
+    # === SHUTDOWN ===
+    logger.info("application_stopping")
+    await close_db()
+    logger.info("application_stopped")
+
+
+# Create FastAPI app with lifespan
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="M365 License Optimizer - Multitenant SaaS for Microsoft 365 license optimization",
+    lifespan=lifespan,
 )
 
 # CORS middleware
@@ -35,20 +58,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-# Startup/shutdown events
-@app.on_event("startup")
-async def startup():
-    """Application startup"""
-    logger.info("application_starting", version=settings.APP_VERSION)
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    """Application shutdown"""
-    await close_db()
-    logger.info("application_stopped")
 
 
 # Health check endpoints
