@@ -77,6 +77,7 @@ jobs:
       - name: Create DB & Run init.sql
         env:
           PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          PGSSLMODE: require
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
 
@@ -86,13 +87,11 @@ jobs:
           psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
                -U ${{ env.POSTGRES_ADMIN_USER }} \
                -d postgres \
-               --set=sslmode=require \
                -c "CREATE DATABASE \"${{ env.POSTGRES_DATABASE_NAME }}\";" || echo "Database may already exist"
 
           psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
                -U ${{ env.POSTGRES_ADMIN_USER }} \
                -d ${{ env.POSTGRES_DATABASE_NAME }} \
-               --set=sslmode=require \
                -f docker/db/init.sql
 
       - name: Deploy Redis Cache
