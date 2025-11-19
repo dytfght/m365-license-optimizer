@@ -21,15 +21,15 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' = {
   }
 }
 
-// 2. Redis Cache
+// 2. Redis Cache (Basic C0 - €12/mois au lieu de €60)
 resource redis 'Microsoft.Cache/Redis@2023-08-01' = {
   name: redisName
   location: location
   properties: {
     sku: {
-      name: 'Standard'
+      name: 'Basic'
       family: 'C'
-      capacity: 1 // C1
+      capacity: 0 // C0 (250 MB)
     }
   }
 }
