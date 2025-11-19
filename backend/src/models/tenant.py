@@ -4,6 +4,7 @@ Tenant models: TenantClient and TenantAppRegistration
 from datetime import datetime
 from enum import Enum as PyEnum
 from typing import Optional
+from uuid import UUID as UUID_TYPE
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -26,6 +27,7 @@ class TenantClient(Base, UUIDMixin, TimestampMixin):
     Each tenant is a separate Microsoft 365 organization.
     """
     __tablename__ = "tenant_clients"
+    __table_args__ = {'schema': 'optimizer'}
     
     # Basic information
     tenant_id: Mapped[str] = mapped_column(
@@ -100,11 +102,12 @@ class TenantAppRegistration(Base, UUIDMixin, TimestampMixin):
     Used for Microsoft Graph API authentication (client credentials flow).
     """
     __tablename__ = "tenant_app_registrations"
+    __table_args__ = {'schema': 'optimizer'}
     
     # Foreign key to tenant
-    tenant_client_id: Mapped[UUID] = mapped_column(
+    tenant_client_id: Mapped[UUID_TYPE] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("tenant_clients.id", ondelete="CASCADE"),
+        ForeignKey("optimizer.tenant_clients.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
         index=True
@@ -116,7 +119,7 @@ class TenantAppRegistration(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         comment="Azure AD Application (client) ID"
     )
-    client_secret: Mapped[Optional[str]] = mapped_column(
+    client_secret_encrypted: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
         comment="Encrypted client secret (use Fernet)"

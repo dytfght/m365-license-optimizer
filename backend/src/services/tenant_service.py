@@ -69,7 +69,7 @@ class TenantService:
         
         app_reg_data = {
             "client_id": client_id,
-            "client_secret": client_secret,  # TODO: Encrypt in production
+            "client_secret_encrypted": client_secret,  # TODO: Encrypt in production
             "authority_url": authority_url,
             "scopes": scopes,
             "consent_status": ConsentStatus.PENDING,
@@ -122,7 +122,7 @@ class TenantService:
             token = await self.graph_auth.get_token(
                 tenant.tenant_id,
                 app_reg.client_id,
-                app_reg.client_secret
+                app_reg.client_secret_encrypted
             )
             
             # Try to call Graph API to verify permissions

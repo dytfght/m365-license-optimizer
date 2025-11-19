@@ -4,6 +4,7 @@ User and License models
 from datetime import datetime
 from enum import Enum as PyEnum
 from typing import Optional
+from uuid import UUID as UUID_TYPE
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -18,6 +19,7 @@ class User(Base, UUIDMixin, TimestampMixin):
     Synced from Microsoft Graph API.
     """
     __tablename__ = "users"
+    __table_args__ = {'schema': 'optimizer'}
     
     # Microsoft Graph ID
     graph_id: Mapped[str] = mapped_column(
@@ -29,9 +31,9 @@ class User(Base, UUIDMixin, TimestampMixin):
     )
     
     # Foreign key to tenant
-    tenant_client_id: Mapped[UUID] = mapped_column(
+    tenant_client_id: Mapped[UUID_TYPE] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("tenant_clients.id", ondelete="CASCADE"),
+        ForeignKey("optimizer.tenant_clients.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
@@ -78,16 +80,17 @@ class LicenseStatus(str, PyEnum):
     ACTIVE = "active"
     SUSPENDED = "suspended"
     DISABLED = "disabled"
+    TRIAL = "trial"
 
 
 class AssignmentSource(str, PyEnum):
     """License assignment source"""
     MANUAL = "manual"
-    GROUP_BASED = "group_based"
     AUTO = "auto"
+    GROUP_POLICY = "group_policy"
 
 
-class LicenseAssignment(Base, UUIDMixin):
+class LicenseAssignment(Base, UUIDMixin, TimestampMixin):
     """
     Represents a license assigned to a user.
     Tracks M365 SKU assignments.
@@ -95,12 +98,13 @@ class LicenseAssignment(Base, UUIDMixin):
     __tablename__ = "license_assignments"
     __table_args__ = (
         UniqueConstraint('user_id', 'sku_id', name='uq_user_sku'),
+        {'schema': 'optimizer'}
     )
     
     # Foreign key to user
-    user_id: Mapped[UUID] = mapped_column(
+    user_id: Mapped[UUID_TYPE] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey("optimizer.users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )

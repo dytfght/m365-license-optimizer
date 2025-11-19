@@ -48,7 +48,7 @@ class UserSyncService:
             token = await self.graph_auth.get_token(
                 tenant.tenant_id,
                 app_reg.client_id,
-                app_reg.client_secret
+                app_reg.client_secret_encrypted
             )
             
             # Create Graph client
