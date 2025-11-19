@@ -10,9 +10,9 @@ CREATE SCHEMA IF NOT EXISTS optimizer;
 -- Search path
 SET search_path TO optimizer, public;
 
--- Extensions
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";     -- gen_random_uuid()
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";    -- uuid_generate_v4() fallback
+-- Extensions (PostgreSQL 13+ a gen_random_uuid() en natif, pas besoin d'extensions)
+-- Azure PostgreSQL Flexible Server a une liste blanche d'extensions
+-- pgcrypto et uuid-ossp ne sont plus nécessaires pour gen_random_uuid()
 
 -- ============================================
 -- Enums (préfixés optimizer.)
@@ -317,6 +317,6 @@ BEGIN
     RAISE NOTICE '================================================';
     RAISE NOTICE 'M365 License Optimizer LOT 2 - Base prête !';
     RAISE NOTICE 'Schema: optimizer | 11 tables | Seed Contoso/Fabrikam OK';
-    RAISE NOTICE 'Tous les tests infrastructure passent à 100%';
+    RAISE NOTICE 'Tous les tests infrastructure passent à 100%%';  -- Double %% pour échapper
     RAISE NOTICE '================================================';
 END $$;

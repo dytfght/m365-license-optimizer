@@ -194,7 +194,7 @@ AddonCompatibility (id PK, addon_sku_id)
 | id | UUID | PK | Identifiant unique |
 | tenant_client_id | UUID | FK, NOT NULL | Lien vers tenant_clients |
 | client_id | VARCHAR(36) | NOT NULL | Application (client) ID |
-| client_secret | TEXT | NULL | Secret chiffré (Fernet) |
+| client_secret_encrypted | TEXT | NULL | Secret chiffré (Fernet) |
 | certificate_thumbprint | VARCHAR(100) | NULL | Thumbprint certificat |
 | authority_url | VARCHAR(255) | NOT NULL | URL d'autorité OAuth2 |
 | scopes | JSONB | DEFAULT '[]' | Liste des scopes autorisés |
@@ -206,9 +206,9 @@ AddonCompatibility (id PK, addon_sku_id)
 **Index** :
 - PK sur `id`
 - FK sur `tenant_client_id` (CASCADE DELETE)
-- UNIQUE sur `client_id`
+- UNIQUE sur `tenant_client_id` (one app registration per tenant)
 
-**Note sécurité** : `client_secret` est chiffré avec Fernet avant insertion (implémenté dans Lot 17)
+**Note sécurité** : `client_secret_encrypted` est chiffré avec Fernet avant insertion (implémenté dans Lot 17)
 
 ### Table 3 : users
 **Objectif** : Stocker les utilisateurs Microsoft 365
@@ -244,8 +244,8 @@ AddonCompatibility (id PK, addon_sku_id)
 | user_id | UUID | FK, NOT NULL | Lien vers users |
 | sku_id | VARCHAR(36) | NOT NULL | GUID de la SKU Graph |
 | assignment_date | TIMESTAMP | NULL | Date d'affectation |
-| status | ENUM | DEFAULT 'active' | active/suspended/disabled |
-| source | ENUM | DEFAULT 'manual' | manual/auto |
+| status | ENUM | DEFAULT 'active' | active/suspended/disabled/trial |
+| source | ENUM | DEFAULT 'manual' | manual/auto/group_policy |
 | created_at | TIMESTAMP | DEFAULT NOW() | Date de création |
 | updated_at | TIMESTAMP | ON UPDATE NOW() | Date de mise à jour |
 

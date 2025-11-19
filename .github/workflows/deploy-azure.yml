@@ -73,26 +73,37 @@ jobs:
 
           sleep 30
 
-      - name: Create DB & Run init.sql
+      - name: Initialize Database (First Time Only)
         env:
           PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
           PGSSLMODE: require
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
-
-          # Pour PostgreSQL Flexible Server, pas besoin de @servername dans le username
-          # et on utilise directement le hostname complet
-          
-          psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
+          # Vérifier si la base existe déjà
+          DB_EXISTS=$(psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
                -U ${{ env.POSTGRES_ADMIN_USER }} \
                -d postgres \
-               -c "CREATE DATABASE \"${{ env.POSTGRES_DATABASE_NAME }}\";" || echo "Database may already exist"
-
-          psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
-               -U ${{ env.POSTGRES_ADMIN_USER }} \
-               -d ${{ env.POSTGRES_DATABASE_NAME }} \
-               -f docker/db/init.sql
-
+               -tAc "SELECT 1 FROM pg_database WHERE datname='${{ env.POSTGRES_DATABASE_NAME }}'" || echo "0")
+          if [ "$DB_EXISTS" = "1" ]; then
+            echo "✅ Database already exists - skipping init.sql"
+            echo "💡 Use Alembic migrations for schema updates: 'alembic upgrade head'"
+          else
+            echo "🆕 Creating database for the first time..."
+            
+            # Créer la base
+            psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
+                 -U ${{ env.POSTGRES_ADMIN_USER }} \
+                 -d postgres \
+                 -c "CREATE DATABASE \"${{ env.POSTGRES_DATABASE_NAME }}\";"
+            
+            # Exécuter init.sql (première fois seulement)
+            psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
+                 -U ${{ env.POSTGRES_ADMIN_USER }} \
+                 -d ${{ env.POSTGRES_DATABASE_NAME }} \
+                 -f docker/db/init.sql
+            
+            echo "✅ Database initialized with init.sql"
+          fi
       - name: Deploy Redis Cache
         run: |
           if ! az redis show -g ${{ env.AZURE_RESOURCE_GROUP }} -n ${{ env.REDIS_CACHE_NAME }} &> /dev/null; then
