@@ -14,9 +14,10 @@ ENV PYTHONUNBUFFERED=1 \
 # Répertoire de travail
 WORKDIR /app
 
-# Installer les dépendances système
+# Installer les dépendances système (y compris build-essential pour hiredis)
 RUN apt-get update && apt-get install -y \
     postgresql-client \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Copier les requirements
@@ -24,6 +25,9 @@ COPY backend/requirements.txt .
 
 # Installer les dépendances Python
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Nettoyer les build tools pour réduire la taille de l'image
+RUN apt-get purge -y --auto-remove build-essential
 
 # Copier le code source
 COPY backend/src ./src
