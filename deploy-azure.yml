@@ -36,9 +36,9 @@ jobs:
       - name: Deploy Infrastructure (Bicep)
         uses: azure/arm-deploy@v1
         with:
-          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }} # Assurez-vous d'avoir l'ID dans vos secrets ou hardcodé
           resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP }}
-          template: ./Main.bicep
+          template: ./main.bicep # Assurez-vous que le fichier est à la racine
           parameters: >
             postgresServerName=${{ env.POSTGRES_SERVER_NAME }}
             postgresDbName=${{ env.POSTGRES_DATABASE_NAME }}
@@ -58,15 +58,14 @@ jobs:
           docker build -f backend/Dockerfile -t ${{ env.ACR_NAME }}.azurecr.io/m365-optimizer-backend:latest .
           docker push ${{ env.ACR_NAME }}.azurecr.io/m365-optimizer-backend:latest
 
-      # Initialisation DB (Protégée contre la réexécution)
-      - name: DB Initialization (First Time Only)
+      # Initialisation DB (Toujours nécessaire en script)
+      - name: DB Initialization (Firewall & SQL)
         env:
           PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
-          PGSSLMODE: require
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
           
-          # Ajout IP Runner temporaire
+          # Ajout IP Runner temporaire (Bicep gère mal les IP dynamiques car cela créerait un diff permanent)
           IP=$(curl -s https://api.ipify.org)
           echo "Adding Runner IP: $IP"
           az postgres flexible-server firewall-rule create -g ${{ env.AZURE_RESOURCE_GROUP }} -n ${{ env.POSTGRES_SERVER_NAME }} --rule-name GitHubRunner --start-ip-address $IP --end-ip-address $IP
@@ -74,23 +73,11 @@ jobs:
           # Wait for firewall propagation
           sleep 10
 
-          # Vérifier si le schéma 'optimizer' existe déjà
-          DB_HAS_SCHEMA=$(psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
+          # Run SQL script
+          psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
                -U ${{ env.POSTGRES_ADMIN_USER }} \
                -d ${{ env.POSTGRES_DATABASE_NAME }} \
-               -tAc "SELECT 1 FROM information_schema.schemata WHERE schema_name='optimizer'" || echo "0")
-
-          if [ "$DB_HAS_SCHEMA" = "1" ]; then
-            echo "✅ Schema 'optimizer' already exists - skipping init.sql"
-            echo "💡 Database is already initialized. Use Alembic migrations for schema updates."
-          else
-            echo "🆕 Initializing database schema for the first time..."
-            psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
-                 -U ${{ env.POSTGRES_ADMIN_USER }} \
-                 -d ${{ env.POSTGRES_DATABASE_NAME }} \
-                 -f docker/db/init.sql
-            echo "✅ Database initialized with init.sql"
-          fi
+               -f docker/db/init.sql
                
           # Nettoyage de la règle firewall (Bonne pratique)
           az postgres flexible-server firewall-rule delete -g ${{ env.AZURE_RESOURCE_GROUP }} -n ${{ env.POSTGRES_SERVER_NAME }} --rule-name GitHubRunner --yes
@@ -101,8 +88,4 @@ jobs:
 
       - name: Output URLs
         run: |
-          echo "=================================="
-          echo "DÉPLOIEMENT RÉUSSI"
-          echo "=================================="
           echo "Backend : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net"
-          echo "Swagger : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/docs"
