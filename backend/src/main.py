@@ -1,24 +1,24 @@
 """
-FastAPI application entry point
+FastAPI application entry point for M365 License Optimizer
+Lot 3: Backend with JWT auth, health checks, and structured logging
 """
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-from .api.tenants import router as tenants_router
+from .api.deps import close_redis
+from .api.v1 import api_router
+from .api.v1.endpoints import health
 from .core.config import settings
-from .core.database import close_db, init_db
+from .core.database import close_db
+from .core.logging import configure_logging
 
-# Configure structured logging
-structlog.configure(
-    processors=[
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.JSONRenderer(),
-    ],
-    logger_factory=structlog.PrintLoggerFactory(),
-)
+# Configure structured logging first
+configure_logging()
 
 logger = structlog.get_logger(__name__)
 
@@ -29,59 +29,95 @@ async def lifespan(app: FastAPI):
     Manage application lifespan: startup and shutdown events.
     """
     # === STARTUP ===
-    logger.info("application_starting", version=settings.APP_VERSION)
-    # Si vous avez besoin d'initialiser la DB au démarrage, décommentez :
-    # await init_db()
-    logger.info("application_started", version=settings.APP_VERSION)
+    logger.info(
+        "application_starting",
+        version=settings.APP_VERSION,
+        lot=settings.LOT_NUMBER,
+        environment=settings.ENVIRONMENT,
+    )
     
     yield  # Application runs here
     
     # === SHUTDOWN ===
     logger.info("application_stopping")
     await close_db()
+    await close_redis()
     logger.info("application_stopped")
 
 
 # Create FastAPI app with lifespan
 app = FastAPI(
     title=settings.APP_NAME,
+    description="Backend API for M365 License Optimizer",
     version=settings.APP_VERSION,
-    description="M365 License Optimizer - Multitenant SaaS for Microsoft 365 license optimization",
+    openapi_url=f"{settings.API_V1_PREFIX}/openapi.json",
     lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+
 )
+
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: Configure properly in production
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# Health check endpoints
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "version": settings.APP_VERSION,
-    }
+# Global exception handler for validation errors
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle validation errors with structured logging"""
+    logger.warning(
+        "validation_error",
+        path=request.url.path,
+        errors=exc.errors(),
+    )
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": exc.errors()},
+    )
 
 
-@app.get("/version")
-async def version():
-    """Version endpoint"""
+# Global exception handler for general exceptions
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle unexpected errors with structured logging"""
+    logger.error(
+        "unhandled_exception",
+        path=request.url.path,
+        error=str(exc),
+        exc_info=True,
+    )
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Internal server error"},
+    )
+
+
+# Root health check endpoint (no prefix)
+app.include_router(health.router)
+
+# Include API v1 router with prefix
+app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+
+
+@app.get("/", tags=["root"])
+async def root():
+    """Root endpoint with API information"""
     return {
         "name": settings.APP_NAME,
         "version": settings.APP_VERSION,
-        "environment": settings.ENVIRONMENT,
+        "lot": settings.LOT_NUMBER,
+        "docs": "/docs",
+        "health": "/health",
+        "api_version": "v1",
+        "api_base": settings.API_V1_PREFIX,
     }
-
-
-# Include routers
-app.include_router(tenants_router, prefix="/api/v1")
 
 
 if __name__ == "__main__":

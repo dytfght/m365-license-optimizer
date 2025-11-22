@@ -47,6 +47,14 @@ class User(Base, UUIDMixin, TimestampMixin):
     display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     account_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     
+    # Authentication (for partner users)
+    password_hash: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Hashed password for authentication (partner users only)"
+    )
+
+    
     # Extended attributes (from Graph API)
     department: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     job_title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)

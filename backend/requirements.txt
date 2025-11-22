@@ -17,6 +17,7 @@ pydantic-settings==2.1.0
 # Authentication & Security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
 
 # HTTP Client & Retry
 aiohttp==3.9.1

@@ -41,6 +41,18 @@ class UserRepository(BaseRepository[User]):
         )
         return result.scalar_one_or_none()
     
+    async def get_by_email(self, email: str) -> User | None:
+        """
+        Get user by email (user_principal_name).
+        Used for authentication.
+        """
+        result = await self.session.execute(
+            select(User)
+            .where(User.user_principal_name == email)
+        )
+        return result.scalar_one_or_none()
+
+    
     async def get_by_tenant(
         self,
         tenant_id: UUID,

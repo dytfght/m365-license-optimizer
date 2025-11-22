@@ -12,7 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.pool import NullPool
 
 from src.core.config import settings
+# Force Redis host to localhost for tests
+# Force Redis host to localhost for tests
+settings.REDIS_HOST = "localhost"
+settings.APP_VERSION = "0.3.0"
+settings.JWT_SECRET_KEY = "test-secret-key-123"
+settings.JWT_ALGORITHM = "HS256"
+
 from src.core.database import get_db
+from src.core.security import create_access_token
 from src.main import app
 from src.models.base import Base
 
@@ -60,9 +68,6 @@ async def db_engine():
     # Teardown: Clean up all database objects
     try:
         async with engine.begin() as conn:
-            # Drop all tables first
-            await conn.run_sync(Base.metadata.drop_all)
-            
             # Drop the entire schema to clean up ENUMs and other types
             await conn.execute(text("DROP SCHEMA IF EXISTS optimizer CASCADE"))
             await conn.execute(text("CREATE SCHEMA optimizer"))
@@ -116,16 +121,51 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides.clear()
 
 
-@pytest.fixture
-def auth_headers():
+@pytest_asyncio.fixture
+async def auth_headers(db_session):
     """
     Mock authentication headers for tests.
     
-    Returns headers with a test Bearer token.
-    In production, this would be a real JWT token.
+    Creates a test user in the database and returns headers with a valid Bearer token.
     """
+    from uuid import uuid4
+    from src.models.user import User
+    from src.models.tenant import TenantClient
+    from src.core.security import get_password_hash
+    
+    # Create a dummy tenant first
+    tenant_id = uuid4()
+    tenant = TenantClient(
+        id=tenant_id,
+        name="Test Tenant",
+        tenant_id=str(uuid4()),  # Azure Tenant ID
+        country="US",
+        onboarding_status="active"
+    )
+    db_session.add(tenant)
+    await db_session.flush()  # Flush to get the ID if needed
+    
+    user_id = uuid4()
+    user = User(
+        id=user_id,
+        graph_id=str(uuid4()),
+        tenant_client_id=tenant_id,
+        user_principal_name="test@example.com",
+        display_name="Test User",
+        password_hash=get_password_hash("test-password"),
+        account_enabled=True
+    )
+    db_session.add(user)
+    await db_session.commit()
+    
+    access_token = create_access_token(
+        data={"sub": str(user_id), "email": "test@example.com"}
+    )
+    if isinstance(access_token, bytes):
+        access_token = access_token.decode("utf-8")
+        
     return {
-        "Authorization": "Bearer test-token-for-testing",
+        "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
     }
 
@@ -199,10 +239,10 @@ async def cleanup_database():
             
             # Insert sample data for infrastructure tests
             await conn.execute(text("""
-                INSERT INTO optimizer.tenant_clients (id, azure_tenant_id, name, domain, is_active)
+                INSERT INTO optimizer.tenant_clients (id, tenant_id, name, country, onboarding_status)
                 VALUES 
-                    (gen_random_uuid(), '12345678-1234-1234-1234-123456789012', 'Test Tenant 1', 'test1.onmicrosoft.com', true),
-                    (gen_random_uuid(), '87654321-4321-4321-4321-210987654321', 'Test Tenant 2', 'test2.onmicrosoft.com', true)
+                    (gen_random_uuid(), '12345678-1234-1234-1234-123456789012', 'Test Tenant 1', 'FR', 'active'),
+                    (gen_random_uuid(), '87654321-4321-4321-4321-210987654321', 'Test Tenant 2', 'US', 'active')
                 ON CONFLICT DO NOTHING;
             """))
     except Exception as e:

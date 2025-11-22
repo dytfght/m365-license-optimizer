@@ -63,6 +63,53 @@ services:
     networks:
       - m365_network
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: m365_optimizer_backend
+    restart: always
+    environment:
+      # Database
+      POSTGRES_DB: ${POSTGRES_DB:-m365_optimizer}
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-m365_optimizer}
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme}
+      REDIS_DB: 0
+      # JWT & Security
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-CHANGE_ME_TO_A_RANDOM_SECRET_KEY_MIN_32_CHARS_LONG_PLEASE}
+      # Azure AD
+      AZURE_AD_TENANT_ID: ${AZURE_AD_TENANT_ID:-00000000-0000-0000-0000-000000000000}
+      AZURE_AD_CLIENT_ID: ${AZURE_AD_CLIENT_ID:-00000000-0000-0000-0000-000000000000}
+      AZURE_AD_CLIENT_SECRET: ${AZURE_AD_CLIENT_SECRET:-YOUR_CLIENT_SECRET_HERE}
+      # App Config
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./backend:/app
+      - ./logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - m365_network
+
 volumes:
   postgres_data:
     driver: local

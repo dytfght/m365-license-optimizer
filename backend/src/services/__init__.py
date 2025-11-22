@@ -1,10 +1,9 @@
 """
-Business logic services
+Services package
 """
-from .tenant_service import TenantService
-from .user_sync_service import UserSyncService
+from .auth_service import AuthService, AuthenticationError
 
 __all__ = [
-    "TenantService",
-    "UserSyncService",
+    "AuthService",
+    "AuthenticationError",
 ]
