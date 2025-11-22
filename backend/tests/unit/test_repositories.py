@@ -90,7 +90,7 @@ class TestTenantRepository:
         
         app_reg_data = {
             "client_id": "87654321-4321-4321-4321-210987654321",
-            "client_secret": "test-secret",
+            "client_secret_encrypted": "test-secret",
             "authority_url": "https://login.microsoftonline.com/test",
             "scopes": ["User.Read.All"],
         }

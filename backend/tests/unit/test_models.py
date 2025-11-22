@@ -83,7 +83,7 @@ class TestTenantAppRegistrationModel:
         app_reg = TenantAppRegistration(
             tenant_client_id=tenant.id,
             client_id="87654321-4321-4321-4321-210987654321",
-            client_secret="test-secret",
+            client_secret_encrypted="test-secret",
             authority_url="https://login.microsoftonline.com/test",
             scopes=["User.Read.All", "Directory.Read.All"],
             consent_status=ConsentStatus.PENDING,
@@ -112,7 +112,7 @@ class TestTenantAppRegistrationModel:
         app_reg = TenantAppRegistration(
             tenant_client_id=tenant.id,
             client_id="87654321-4321-4321-4321-210987654321",
-            client_secret="test-secret",
+            client_secret_encrypted="test-secret",
             authority_url="https://login.microsoftonline.com/test",
             scopes=["User.Read.All"],
         )

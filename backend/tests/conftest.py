@@ -7,6 +7,7 @@ from typing import AsyncGenerator
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
@@ -15,11 +16,9 @@ from src.core.database import get_db
 from src.main import app
 from src.models.base import Base
 
-# Test database URL (separate from production)
-TEST_DATABASE_URL = settings.DATABASE_URL.replace(
-    "m365_license_optimizer",
-    "m365_license_optimizer_test"
-)
+# Use the main database (m365_optimizer) for tests
+# Tables are created/dropped for each test to ensure isolation
+TEST_DATABASE_URL = settings.DATABASE_URL
 
 
 @pytest.fixture(scope="session")
@@ -40,9 +39,11 @@ async def db_engine():
         poolclass=NullPool,
     )
     
-    # Create all tables
+    # Drop any orphaned tables with CASCADE before creating schema
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        # Drop schema cascade to handle orphaned tables from previous versions
+        await conn.execute(text("DROP SCHEMA IF EXISTS optimizer CASCADE"))
+        await conn.execute(text("CREATE SCHEMA optimizer"))
         await conn.run_sync(Base.metadata.create_all)
     
     yield engine

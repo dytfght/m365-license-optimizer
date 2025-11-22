@@ -43,5 +43,5 @@ mypy==1.7.1
 isort==5.13.2
 
 # Microsoft Graph API (si nécessaire)
-msal==1.25.0  # ⚠️
-msgraph-sdk==1.0.0 
+#msal==1.25.0  # ⚠️
+#msgraph-sdk==1.0.0 
