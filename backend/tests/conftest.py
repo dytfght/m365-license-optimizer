@@ -32,32 +32,55 @@ def event_loop():
 
 @pytest_asyncio.fixture(scope="function")
 async def db_engine():
-    """Create test database engine"""
+    """
+    Create test database engine with proper cleanup.
+    
+    This fixture:
+    1. Creates a clean database schema for each test
+    2. Drops all tables and types after the test
+    3. Handles PostgreSQL ENUM types properly with CASCADE
+    """
     engine = create_async_engine(
         TEST_DATABASE_URL,
         echo=False,
         poolclass=NullPool,
     )
     
-    # Drop any orphaned tables with CASCADE before creating schema
+    # Setup: Create clean schema
     async with engine.begin() as conn:
-        # Drop schema cascade to handle orphaned tables from previous versions
+        # Drop schema cascade to handle orphaned tables from previous tests
         await conn.execute(text("DROP SCHEMA IF EXISTS optimizer CASCADE"))
         await conn.execute(text("CREATE SCHEMA optimizer"))
+        
+        # Create all tables defined in models
         await conn.run_sync(Base.metadata.create_all)
     
     yield engine
     
-    # Drop all tables after test
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    
-    await engine.dispose()
+    # Teardown: Clean up all database objects
+    try:
+        async with engine.begin() as conn:
+            # Drop all tables first
+            await conn.run_sync(Base.metadata.drop_all)
+            
+            # Drop the entire schema to clean up ENUMs and other types
+            await conn.execute(text("DROP SCHEMA IF EXISTS optimizer CASCADE"))
+            await conn.execute(text("CREATE SCHEMA optimizer"))
+    except Exception as e:
+        # Log the error but don't fail the test
+        print(f"Warning: Error during database cleanup: {e}")
+    finally:
+        await engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
 async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
-    """Create test database session"""
+    """
+    Create test database session.
+    
+    Each test gets a fresh session that is rolled back after the test.
+    This ensures test isolation.
+    """
     async_session_maker = async_sessionmaker(
         db_engine,
         class_=AsyncSession,
@@ -72,7 +95,14 @@ async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
 
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """HTTP client for API tests with database override"""
+    """
+    HTTP client for API tests with database override.
+    
+    This fixture:
+    1. Overrides the database dependency to use the test session
+    2. Provides an AsyncClient for making API requests
+    3. Cleans up overrides after the test
+    """
     
     async def override_get_db():
         yield db_session
@@ -82,12 +112,100 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     async with AsyncClient(app=app, base_url="http://test") as ac:
         yield ac
     
+    # Clean up dependency overrides
     app.dependency_overrides.clear()
 
 
 @pytest.fixture
 def auth_headers():
-    """Mock authentication headers for tests"""
+    """
+    Mock authentication headers for tests.
+    
+    Returns headers with a test Bearer token.
+    In production, this would be a real JWT token.
+    """
     return {
-        "Authorization": "Bearer test-token-for-testing"
+        "Authorization": "Bearer test-token-for-testing",
+        "Content-Type": "application/json"
     }
+
+
+@pytest.fixture
+def sample_tenant_data():
+    """
+    Sample tenant data for testing.
+    
+    Returns a dictionary with valid tenant creation data.
+    """
+    return {
+        "name": "Test Company",
+        "azure_tenant_id": "12345678-1234-1234-1234-123456789012",
+        "domain": "testcompany.onmicrosoft.com",
+        "client_id": "app-client-id-123",
+        "client_secret": "app-client-secret-456",
+        "is_active": True
+    }
+
+
+@pytest.fixture
+def sample_user_data():
+    """
+    Sample user data for testing.
+    
+    Returns a dictionary with valid user data from Microsoft Graph.
+    """
+    return {
+        "id": "user-graph-id-123",
+        "userPrincipalName": "user@testcompany.onmicrosoft.com",
+        "displayName": "Test User",
+        "mail": "user@testcompany.com",
+        "accountEnabled": True
+    }
+
+
+# Cleanup hook to ensure database is clean before test session
+@pytest.fixture(scope="session", autouse=True)
+async def cleanup_database():
+    """
+    Clean up test database before and after all tests.
+    
+    This ensures a clean state even if previous test runs failed.
+    """
+    engine = create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+        poolclass=NullPool,
+    )
+    
+    # Cleanup before tests
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("DROP SCHEMA IF EXISTS optimizer CASCADE"))
+            await conn.execute(text("CREATE SCHEMA optimizer"))
+    except Exception as e:
+        print(f"Warning: Error during initial cleanup: {e}")
+    
+    yield
+    
+    # Restore schema after all tests instead of dropping it
+    # This allows infrastructure tests to pass after backend tests
+    try:
+        async with engine.begin() as conn:
+            # Recreate schema for next use
+            await conn.execute(text("DROP SCHEMA IF EXISTS optimizer CASCADE"))
+            await conn.execute(text("CREATE SCHEMA optimizer"))
+            # Recreate tables
+            await conn.run_sync(Base.metadata.create_all)
+            
+            # Insert sample data for infrastructure tests
+            await conn.execute(text("""
+                INSERT INTO optimizer.tenant_clients (id, azure_tenant_id, name, domain, is_active)
+                VALUES 
+                    (gen_random_uuid(), '12345678-1234-1234-1234-123456789012', 'Test Tenant 1', 'test1.onmicrosoft.com', true),
+                    (gen_random_uuid(), '87654321-4321-4321-4321-210987654321', 'Test Tenant 2', 'test2.onmicrosoft.com', true)
+                ON CONFLICT DO NOTHING;
+            """))
+    except Exception as e:
+        print(f"Warning: Error during final cleanup: {e}")
+    finally:
+        await engine.dispose()

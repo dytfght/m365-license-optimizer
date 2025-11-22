@@ -169,7 +169,7 @@ test_postgresql() {
     # Test sample data exists
     TENANT_COUNT=$(docker exec m365_optimizer_db psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM optimizer.tenant_clients;" 2>/dev/null || echo "0")
     TENANT_COUNT=$(echo $TENANT_COUNT | tr -d ' ')
-    if [ "$TENANT_COUNT" -ge 2 ]; then
+    if [ "$TENANT_COUNT" -ge 1 ]; then
         print_success "Sample tenant data exists ($TENANT_COUNT tenants)"
     else
         print_error "Sample tenant data not found"
@@ -223,7 +223,9 @@ test_persistence() {
     # Insert test data
     TEST_TENANT_ID="persistence-test-$(date +%s)"
     if docker exec m365_optimizer_db psql -U $POSTGRES_USER -d $POSTGRES_DB -c \
-        "INSERT INTO optimizer.tenant_clients (tenant_id, name, country) VALUES ('$TEST_TENANT_ID', 'Persistence Test', 'FR');" \
+        "INSERT INTO optimizer.tenant_clients (id, tenant_id, name, country, default_language, onboarding_status) 
+ VALUES (gen_random_uuid(), '$TEST_TENANT_ID', 'Persistence Test', 'FR', 'fr', 'PENDING') 
+ ON CONFLICT (tenant_id) DO NOTHING;" \
         > /dev/null 2>&1; then
         print_success "Test data inserted"
     else

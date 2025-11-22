@@ -1,5 +1,5 @@
 # ============================================
-# M365 License Optimizer - Makefile
+# M365 License Optimizer - Makefile (WSL Compatible)
 # ============================================
 # Simplifies common development tasks
 # ============================================
@@ -27,11 +27,9 @@ REDIS_CONTAINER := m365_optimizer_redis
 BACKUP_DIR := backups
 BACKEND_DIR := backend
 VENV := $(BACKEND_DIR)/venv
-PYTHON := $(VENV)/bin/python
-PIP := $(VENV)/bin/pip
-PYTEST := $(VENV)/bin/pytest
-ALEMBIC := $(VENV)/bin/alembic
-UVICORN := $(VENV)/bin/uvicorn
+
+# WSL-compatible: Use bash to run commands in venv context
+RUN_IN_VENV := cd $(BACKEND_DIR) && bash -c 'source venv/bin/activate && 
 
 # PostgreSQL connection variables from .env
 PGPASSWORD := $(POSTGRES_PASSWORD)
@@ -122,40 +120,33 @@ setup-quick: check-docker
 ## setup-backend: Setup Python backend environment
 setup-backend: check-python
 	@echo "$(BLUE)Setting up Python backend...$(NC)"
-	@# Nettoyer venv incomplet
-	@if [ -d "$(VENV)" ] && [ ! -f "$(PIP)" ]; then \
-		echo "$(YELLOW)Removing incomplete virtual environment...$(NC)"; \
+	@# Supprimer venv existant s'il est corrompu
+	@if [ -d "$(VENV)" ]; then \
+		echo "$(YELLOW)Removing existing virtual environment...$(NC)"; \
 		rm -rf $(VENV); \
 	fi
 	@# Créer le venv
-	@if [ ! -d "$(VENV)" ]; then \
-		echo "$(YELLOW)Creating virtual environment...$(NC)"; \
-		cd $(BACKEND_DIR) && python3 -m venv --copies venv || { \
-			echo "$(RED)✗ Failed to create virtual environment$(NC)"; \
-			echo ""; \
-			echo "$(YELLOW)Required packages:$(NC)"; \
-			echo "  sudo apt-get update"; \
-			echo "  sudo apt-get install python3 python3-pip python3-venv python3-dev"; \
-			exit 1; \
-		}; \
-	fi
-	@# Vérifier que pip existe
-	@if [ ! -f "$(PIP)" ]; then \
-		echo "$(RED)✗ pip not found in virtual environment$(NC)"; \
-		echo "$(YELLOW)This usually means python3-pip is not installed$(NC)"; \
+	@echo "$(YELLOW)Creating virtual environment...$(NC)"
+	@cd $(BACKEND_DIR) && python3 -m venv venv || { \
+		echo "$(RED)✗ Failed to create virtual environment$(NC)"; \
 		echo ""; \
-		echo "$(YELLOW)Fix with:$(NC)"; \
-		echo "  sudo apt-get install python3-pip"; \
-		echo "  rm -rf $(VENV)"; \
-		echo "  make setup-backend"; \
-		rm -rf $(VENV); \
+		echo "$(YELLOW)Required packages:$(NC)"; \
+		echo "  sudo apt-get update"; \
+		echo "  sudo apt-get install python3 python3-pip python3-venv python3-dev"; \
+		exit 1; \
+	}
+	@# Vérifier que le venv est fonctionnel
+	@if [ ! -f "$(VENV)/bin/activate" ]; then \
+		echo "$(RED)✗ Virtual environment creation failed$(NC)"; \
 		exit 1; \
 	fi
 	@echo "$(GREEN)✓ Virtual environment created$(NC)"
+	@# Upgrade pip
 	@echo "$(YELLOW)Upgrading pip...$(NC)"
-	@cd $(BACKEND_DIR) && $(PIP) install --upgrade pip
+	@$(RUN_IN_VENV) pip install --upgrade pip'
+	@# Installer les dépendances
 	@echo "$(YELLOW)Installing dependencies...$(NC)"
-	@cd $(BACKEND_DIR) && $(PIP) install -r requirements.txt
+	@$(RUN_IN_VENV) pip install -r requirements.txt'
 	@echo "$(GREEN)✓ Backend setup complete$(NC)"
 
 ## start: Start all services (infrastructure + API)
@@ -173,10 +164,10 @@ start-infra: check-env
 	@make status
 
 ## start-api: Start FastAPI backend server
-start-api: source-env
+start-api: check-venv
 	@echo "$(BLUE)Starting FastAPI on http://localhost:8000$(NC)"
 	@echo "$(YELLOW)Documentation: http://localhost:8000/docs$(NC)"
-	@cd $(BACKEND_DIR) && $(UVICORN) src.main:app --host 0.0.0.0 --port 8000
+	@$(RUN_IN_VENV) uvicorn src.main:app --host 0.0.0.0 --port 8000'
 
 ## dev: Start backend in development mode with auto-reload
 dev: start-infra
@@ -184,7 +175,7 @@ dev: start-infra
 	@echo "$(GREEN)✓ Auto-reload enabled$(NC)"
 	@echo "$(YELLOW)API: http://localhost:8000$(NC)"
 	@echo "$(YELLOW)Docs: http://localhost:8000/docs$(NC)"
-	@cd $(BACKEND_DIR) && $(UVICORN) src.main:app --host 0.0.0.0 --port 8000 --reload
+	@$(RUN_IN_VENV) uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload'
 
 ## stop: Stop all services
 stop:
@@ -206,7 +197,7 @@ status:
 	@$(COMPOSE) ps
 	@echo ""
 	@echo "$(BLUE)FastAPI Status:$(NC)"
-	@curl -s http://localhost:8000/health 2>/dev/null | jq . || echo "$(RED)✗ API not responding$(NC)"
+	@curl -s http://localhost:8000/health 2>/dev/null || echo "$(RED)✗ API not responding$(NC)"
 	@echo ""
 	@echo "$(BLUE)Health Checks:$(NC)"
 	@docker ps --format "table {{.Names}}\t{{.Status}}" | grep m365_optimizer || true
@@ -232,28 +223,28 @@ logs-api:
 	@tail -f $(BACKEND_DIR)/logs/api.log 2>/dev/null || echo "$(YELLOW)No log file found. API may be running in foreground.$(NC)"
 
 ## migrations: Create new Alembic migration
-migrations: source-env
+migrations: check-venv
 	@echo "$(BLUE)Creating new migration...$(NC)"
 	@read -p "Migration message: " MSG; \
-	cd $(BACKEND_DIR) && $(ALEMBIC) revision --autogenerate -m "$$MSG"
+	$(RUN_IN_VENV) alembic revision --autogenerate -m "$$MSG"'
 	@echo "$(GREEN)✓ Migration created$(NC)"
 
 ## migrate: Apply all pending migrations
-migrate: source-env
+migrate: check-venv
 	@echo "$(BLUE)Applying database migrations...$(NC)"
-	@cd $(BACKEND_DIR) && $(ALEMBIC) upgrade head
+	@$(RUN_IN_VENV) alembic upgrade head'
 	@echo "$(GREEN)✓ Migrations applied$(NC)"
 
 ## migrate-down: Rollback last migration
-migrate-down: source-env
+migrate-down: check-venv
 	@echo "$(YELLOW)Rolling back last migration...$(NC)"
-	@cd $(BACKEND_DIR) && $(ALEMBIC) downgrade -1
+	@$(RUN_IN_VENV) alembic downgrade -1'
 	@echo "$(GREEN)✓ Migration rolled back$(NC)"
 
 ## shell-backend: Open Python shell with app context
-shell-backend: source-env
+shell-backend: check-venv
 	@echo "$(BLUE)Opening Python shell...$(NC)"
-	@cd $(BACKEND_DIR) && $(PYTHON) -i -c "from src.main import app; from src.core.database import engine"
+	@$(RUN_IN_VENV) python -i -c "from src.main import app; from src.core.database import engine"'
 
 ## shell-db: Open PostgreSQL shell
 shell-db: check-env
@@ -293,22 +284,22 @@ test: check-test-env
 	@make test-backend
 
 ## test-backend: Run all backend tests
-test-backend: check-test-env source-env
+test-backend: check-venv
 	@echo "$(BLUE)Running backend tests...$(NC)"
-	@cd $(BACKEND_DIR) && $(PYTEST) tests/ -v --tb=short
+	@$(RUN_IN_VENV) pytest tests/ -v --tb=short'
 
 ## test-unit: Run unit tests only
-test-unit: check-test-env source-env
+test-unit: check-venv
 	@echo "$(BLUE)Running unit tests...$(NC)"
-	@cd $(BACKEND_DIR) && $(PYTEST) tests/unit/ -v --tb=short -m unit
+	@$(RUN_IN_VENV) pytest tests/unit/ -v --tb=short -m unit'
 
 ## test-integration: Run integration tests only
-test-integration: check-test-env source-env
+test-integration: check-venv
 	@echo "$(BLUE)Running integration tests...$(NC)"
-	@cd $(BACKEND_DIR) && $(PYTEST) tests/integration/ -v --tb=short
+	@$(RUN_IN_VENV) pytest tests/integration/ -v --tb=short'
 
 ## test-lot2: Run Lot 2 specific tests
-test-lot2: check-test-env source-env
+test-lot2: check-venv
 	@echo "$(BLUE)Running Lot 2 tests (Tenant & User Management)...$(NC)"
 	@echo ""
 	@echo "$(YELLOW)Test Coverage:$(NC)"
@@ -317,17 +308,17 @@ test-lot2: check-test-env source-env
 	@echo "  - License assignments"
 	@echo "  - Microsoft Graph integration (mocked)"
 	@echo ""
-	@cd $(BACKEND_DIR) && $(PYTEST) \
+	@$(RUN_IN_VENV) pytest \
 		tests/unit/test_models.py \
 		tests/unit/test_repositories.py \
 		tests/integration/test_api_tenants.py \
 		tests/integration/test_graph_integration.py \
-		-v --tb=short
+		-v --tb=short'
 
 ## test-coverage: Run tests with coverage report
-test-coverage: check-test-env source-env
+test-coverage: check-venv
 	@echo "$(BLUE)Running tests with coverage...$(NC)"
-	@cd $(BACKEND_DIR) && $(PYTEST) tests/ --cov=src --cov-report=html --cov-report=term-missing
+	@$(RUN_IN_VENV) pytest tests/ --cov=src --cov-report=html --cov-report=term-missing'
 	@echo "$(GREEN)✓ Coverage report generated: $(BACKEND_DIR)/htmlcov/index.html$(NC)"
 
 ## test-infrastructure: Run infrastructure tests
@@ -362,22 +353,22 @@ test-redis:
 	fi
 
 ## lint: Run code linting
-lint: source-env
+lint: check-venv
 	@echo "$(BLUE)Running linters...$(NC)"
-	@cd $(BACKEND_DIR) && $(PYTHON) -m ruff check src/ tests/ || true
+	@$(RUN_IN_VENV) ruff check src/ tests/' || true
 	@echo "$(GREEN)✓ Linting complete$(NC)"
 
 ## format: Format code
-format: source-env
+format: check-venv
 	@echo "$(BLUE)Formatting code...$(NC)"
-	@cd $(BACKEND_DIR) && $(PYTHON) -m black src/ tests/
-	@cd $(BACKEND_DIR) && $(PYTHON) -m isort src/ tests/
+	@$(RUN_IN_VENV) black src/ tests/'
+	@$(RUN_IN_VENV) isort src/ tests/'
 	@echo "$(GREEN)✓ Code formatted$(NC)"
 
 ## type-check: Run type checking
-type-check: source-env
+type-check: check-venv
 	@echo "$(BLUE)Running type checker...$(NC)"
-	@cd $(BACKEND_DIR) && $(PYTHON) -m mypy src/ || true
+	@$(RUN_IN_VENV) mypy src/' || true
 	@echo "$(GREEN)✓ Type checking complete$(NC)"
 
 ## backup: Backup PostgreSQL database
@@ -403,29 +394,6 @@ restore: check-env
 	else \
 		echo "$(RED)Backup file not found$(NC)"; \
 	fi
-
-# Hidden targets
-.PHONY: check-python
-
-check-python:
-	@echo "$(BLUE)Checking Python environment...$(NC)"
-	@command -v python3 >/dev/null 2>&1 || { \
-		echo "$(RED)✗ Python3 not found$(NC)"; \
-		echo "$(YELLOW)Install: sudo apt-get install python3$(NC)"; \
-		exit 1; \
-	}
-	@python3 -m pip --version >/dev/null 2>&1 || { \
-		echo "$(RED)✗ pip module not found$(NC)"; \
-		echo "$(YELLOW)Install: sudo apt-get install python3-pip$(NC)"; \
-		exit 1; \
-	}
-	@python3 -c "import venv" 2>/dev/null || { \
-		echo "$(RED)✗ venv module not found$(NC)"; \
-		echo "$(YELLOW)Install: sudo apt-get install python3-venv$(NC)"; \
-		exit 1; \
-	}
-	@echo "$(GREEN)✓ Python environment OK$(NC)"
-
 
 ## clean: Stop and remove containers (keeps volumes)
 clean:
@@ -472,11 +440,30 @@ clean-data:
 	fi
 
 # Hidden targets (not shown in help)
-.PHONY: check-env check-docker check-test-env source-env check-python
+.PHONY: check-env check-docker check-test-env check-venv check-python
 
 check-docker:
 	@command -v docker >/dev/null 2>&1 || { echo "$(RED)Error: Docker not found$(NC)"; exit 1; }
 	@docker info >/dev/null 2>&1 || { echo "$(RED)Error: Docker daemon not running$(NC)"; exit 1; }
+
+check-python:
+	@echo "$(BLUE)Checking Python environment...$(NC)"
+	@command -v python3 >/dev/null 2>&1 || { \
+		echo "$(RED)✗ Python3 not found$(NC)"; \
+		echo "$(YELLOW)Install: sudo apt-get install python3$(NC)"; \
+		exit 1; \
+	}
+	@python3 -m pip --version >/dev/null 2>&1 || { \
+		echo "$(RED)✗ pip module not found$(NC)"; \
+		echo "$(YELLOW)Install: sudo apt-get install python3-pip$(NC)"; \
+		exit 1; \
+	}
+	@python3 -c "import venv" 2>/dev/null || { \
+		echo "$(RED)✗ venv module not found$(NC)"; \
+		echo "$(YELLOW)Install: sudo apt-get install python3-venv$(NC)"; \
+		exit 1; \
+	}
+	@echo "$(GREEN)✓ Python environment OK$(NC)"
 
 check-env:
 	@if [ ! -f .env ]; then \
@@ -485,20 +472,14 @@ check-env:
 		exit 1; \
 	fi
 
-source-env: check-env
-	@. ./.env; \
-	if [ -z "$$DATABASE_URL" ]; then \
-		echo "$(RED)Error: DATABASE_URL not set in .env$(NC)"; \
-		exit 1; \
-	fi; \
-	export DATABASE_URL=$$DATABASE_URL
-
-check-test-env: check-env
-	@if [ ! -d "$(VENV)" ]; then \
-		echo "$(RED)Error: Virtual environment not found$(NC)"; \
+check-venv: check-env
+	@if [ ! -d "$(VENV)" ] || [ ! -f "$(VENV)/bin/activate" ]; then \
+		echo "$(RED)Error: Virtual environment not found or incomplete$(NC)"; \
 		echo "$(YELLOW)Run 'make setup-backend' first$(NC)"; \
 		exit 1; \
 	fi
-	@docker exec $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d postgres -c "SELECT 1 FROM pg_database WHERE datname = '$(POSTGRES_DB)_test';" | grep -q 1 || \
+
+check-test-env: check-venv
+	@docker exec $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d postgres -c "SELECT 1 FROM pg_database WHERE datname = '$(POSTGRES_DB)_test';" 2>/dev/null | grep -q 1 || \
 	(echo "$(YELLOW)Creating test database...$(NC)" && \
 	docker exec $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d postgres -c "CREATE DATABASE $(POSTGRES_DB)_test;")
