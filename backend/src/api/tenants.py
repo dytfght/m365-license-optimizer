@@ -25,7 +25,7 @@ router = APIRouter(prefix="/tenants", tags=["tenants"])
 async def list_tenants(
     admin: CurrentAdmin,
     tenant_service: TenantServiceDep,
-):
+) -> list[TenantResponse]:
     """
     List all tenant clients.
 
@@ -35,7 +35,7 @@ async def list_tenants(
 
     tenants = await tenant_service.get_all_tenants()
 
-    return tenants
+    return tenants  # type: ignore[return-value]
 
 
 @router.post("", response_model=TenantResponse, status_code=status.HTTP_201_CREATED)
@@ -43,7 +43,7 @@ async def create_tenant(
     tenant_data: TenantCreate,
     admin: CurrentAdmin,
     tenant_service: TenantServiceDep,
-):
+) -> TenantResponse:
     """
     Create a new tenant client with app registration.
 
@@ -67,7 +67,7 @@ async def create_tenant(
             csp_customer_id=tenant_data.csp_customer_id,
         )
 
-        return tenant
+        return tenant  # type: ignore[return-value]
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -78,7 +78,7 @@ async def get_tenant(
     tenant_id: UUID,
     admin: CurrentAdmin,
     tenant_service: TenantServiceDep,
-):
+) -> TenantDetailResponse:
     """
     Get tenant details by ID.
 
@@ -90,7 +90,7 @@ async def get_tenant(
 
     try:
         tenant = await tenant_service.get_tenant_by_id(tenant_id)
-        return tenant
+        return tenant  # type: ignore[return-value]
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -101,7 +101,7 @@ async def validate_tenant_credentials(
     tenant_id: UUID,
     admin: CurrentAdmin,
     tenant_service: TenantServiceDep,
-):
+) -> ValidationResponse:
     """
     Validate tenant app registration credentials.
 
@@ -113,7 +113,7 @@ async def validate_tenant_credentials(
 
     try:
         result = await tenant_service.validate_tenant_credentials(tenant_id)
-        return result
+        return result  # type: ignore[return-value]
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -124,7 +124,7 @@ async def sync_tenant_users(
     tenant_id: UUID,
     admin: CurrentAdmin,
     user_sync_service: UserSyncServiceDep,
-):
+) -> UserSyncResponse:
     """
     Sync users from Microsoft Graph for a tenant.
 
@@ -136,7 +136,7 @@ async def sync_tenant_users(
 
     try:
         result = await user_sync_service.sync_users(tenant_id)
-        return result
+        return result  # type: ignore[return-value]
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -153,7 +153,7 @@ async def sync_tenant_users(
 async def trigger_analysis(
     tenant_id: UUID,
     admin: CurrentAdmin,
-):
+) -> None:
     """
     Trigger license analysis for a tenant (placeholder for Lot 9+).
 

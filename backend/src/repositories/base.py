@@ -1,7 +1,7 @@
 """
 Base repository with common CRUD operations
 """
-from typing import Generic, Protocol, Type, TypeVar
+from typing import Any, Generic, Protocol, Type, TypeVar
 from uuid import UUID
 
 import structlog
@@ -43,7 +43,7 @@ class BaseRepository(Generic[ModelType]):
         )
         return list(result.scalars().all())
 
-    async def create(self, **kwargs) -> ModelType:
+    async def create(self, **kwargs: Any) -> ModelType:
         """Create new entity"""
         entity = self.model(**kwargs)
         self.session.add(entity)
@@ -54,7 +54,7 @@ class BaseRepository(Generic[ModelType]):
 
         return entity
 
-    async def update(self, entity: ModelType, **kwargs) -> ModelType:
+    async def update(self, entity: ModelType, **kwargs: Any) -> ModelType:
         """Update existing entity"""
         for key, value in kwargs.items():
             if hasattr(entity, key):

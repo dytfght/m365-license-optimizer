@@ -1,6 +1,7 @@
 """
 Repository for Tenant operations
 """
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -82,7 +83,7 @@ class TenantRepository(BaseRepository[TenantClient]):
         return tenant
 
     async def update_app_registration(
-        self, tenant_id: UUID, **kwargs
+        self, tenant_id: UUID, **kwargs: Any
     ) -> TenantAppRegistration:
         """Update app registration for a tenant"""
         result = await self.session.execute(

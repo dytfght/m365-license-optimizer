@@ -2,8 +2,11 @@
 Alembic migration environment configuration
 """
 import asyncio
-import os
+
+# Import models for autogenerate
+import sys
 from logging.config import fileConfig
+from pathlib import Path
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
@@ -11,37 +14,20 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-# Import models for autogenerate
-import sys
-from pathlib import Path
-
 # Add backend directory to path
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
 # Import all models to ensure they're registered with Base.metadata
-from src.models.base import Base
-from src.models.tenant import TenantClient, TenantAppRegistration
-from src.models.user import User, LicenseAssignment
+from src.core.config import settings  # noqa: E402
+from src.models import *  # noqa: E402, F403
+from src.models.base import Base  # noqa: E402
 
 # this is the Alembic Config object
 config = context.config
 
-# Ajout pour charger le .env et construire l'URL
-from dotenv import load_dotenv
-
-# Charge le fichier .env (assurez-vous qu'il est au même niveau que env.py ou ajustez le chemin si besoin)
-load_dotenv()
-
-# Récupérez les variables d'environnement depuis .env
-POSTGRES_USER = os.getenv('POSTGRES_USER')
-POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD')
-POSTGRES_HOST = os.getenv('POSTGRES_HOST')
-POSTGRES_PORT = os.getenv('POSTGRES_PORT', '5432')  # Valeur par défaut si non spécifiée
-POSTGRES_DB = os.getenv('POSTGRES_DB')
-
 # Construisez l'URL de connexion
-database_url = f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+database_url = settings.DATABASE_URL
 
 # Définir l'URL dans la config Alembic si elle n'est pas déjà présente
 if not config.get_main_option("sqlalchemy.url"):

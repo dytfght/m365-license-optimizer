@@ -17,7 +17,7 @@ router = APIRouter(tags=["health"])
 
 
 @router.get("/health", response_model=HealthCheck, status_code=status.HTTP_200_OK)
-async def basic_health_check():
+async def basic_health_check() -> HealthCheck:
     """
     Basic health check endpoint.
 
@@ -36,7 +36,7 @@ async def basic_health_check():
 )
 async def detailed_health_check(
     db: AsyncSession = Depends(get_db),
-):
+) -> DetailedHealthCheck:
     """
     Detailed health check with database and Redis status.
 
@@ -82,7 +82,7 @@ async def detailed_health_check(
     summary="Get version information",
     description="Get application version and environment information",
 )
-async def get_version():
+async def get_version() -> VersionResponse:
     """
     Get application version and environment information.
 

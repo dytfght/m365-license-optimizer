@@ -5,14 +5,14 @@ from typing import Annotated
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....core.database import get_db
 from ....models.user import User
 from ....repositories.tenant_repository import TenantRepository
-from ....schemas.tenant import TenantList, TenantResponse, TenantCreateRequest
+from ....schemas.tenant import TenantCreateRequest, TenantList, TenantResponse
 from ...deps import get_current_user
 
 logger = structlog.get_logger(__name__)
@@ -30,7 +30,7 @@ router = APIRouter(prefix="/tenants", tags=["tenants"])
 async def list_tenants(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-):
+) -> TenantList:
     """
     Get list of tenants for the authenticated user.
 
@@ -88,7 +88,7 @@ async def create_tenant(
     tenant_in: TenantCreateRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-):
+) -> TenantResponse:
     """
     Create a new tenant.
 
@@ -165,7 +165,7 @@ async def get_tenant(
     tenant_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-):
+) -> TenantResponse:
     """
     Get tenant by ID.
 

@@ -27,7 +27,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 async def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Annotated[AsyncSession, Depends(get_db)],
-):
+) -> Token:
     """
     Login endpoint using OAuth2 password flow.
 
@@ -79,7 +79,7 @@ async def login(
 async def refresh_token(
     refresh_data: RefreshTokenRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-):
+) -> RefreshTokenResponse:
     """
     Refresh access token using a valid refresh token.
 

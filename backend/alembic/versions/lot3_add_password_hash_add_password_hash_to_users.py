@@ -7,9 +7,9 @@ Create Date: 2025-11-22 19:45:00.000000
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'lot3_add_password_hash'

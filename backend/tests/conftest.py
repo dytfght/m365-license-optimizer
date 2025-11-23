@@ -8,7 +8,7 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from src.core.config import settings
@@ -20,7 +20,7 @@ from src.models.base import Base
 # Force Redis host to localhost for tests
 # Force Redis host to localhost for tests
 settings.REDIS_HOST = "localhost"
-settings.APP_VERSION = "0.3.0"
+settings.APP_VERSION = "0.4.0"
 settings.JWT_SECRET_KEY = "test-secret-key-123"
 settings.JWT_ALGORITHM = "HS256"
 
@@ -129,9 +129,10 @@ async def auth_headers(db_session):
     Creates a test user in the database and returns headers with a valid Bearer token.
     """
     from uuid import uuid4
-    from src.models.user import User
-    from src.models.tenant import TenantClient
+
     from src.core.security import get_password_hash
+    from src.models.tenant import TenantClient
+    from src.models.user import User
 
     # Create a dummy tenant first
     tenant_id = uuid4()
@@ -242,7 +243,7 @@ async def cleanup_database():
                 text(
                     """
                 INSERT INTO optimizer.tenant_clients (id, tenant_id, name, country, onboarding_status)
-                VALUES 
+                VALUES
                     (gen_random_uuid(), '12345678-1234-1234-1234-123456789012', 'Test Tenant 1', 'FR', 'active'),
                     (gen_random_uuid(), '87654321-4321-4321-4321-210987654321', 'Test Tenant 2', 'US', 'active')
                 ON CONFLICT DO NOTHING;

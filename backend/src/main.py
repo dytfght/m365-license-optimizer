@@ -3,6 +3,7 @@ FastAPI application entry point for M365 License Optimizer
 Lot 3: Backend with JWT auth, health checks, and structured logging
 """
 from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator
 
 import structlog
 from fastapi import FastAPI, Request, status
@@ -32,7 +33,7 @@ logger = structlog.get_logger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     Manage application lifespan: startup and shutdown events.
     """
@@ -96,7 +97,9 @@ app.add_middleware(
 
 # Global exception handler for validation errors
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
     """Handle validation errors with structured logging"""
     logger.warning(
         "validation_error",
@@ -111,7 +114,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 # Global exception handler for general exceptions
 @app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
+async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected errors with structured logging"""
     logger.error(
         "unhandled_exception",
@@ -133,7 +136,7 @@ app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/", tags=["root"])
-async def root():
+async def root() -> dict[str, Any]:
     """Root endpoint with API information"""
     return {
         "name": settings.APP_NAME,

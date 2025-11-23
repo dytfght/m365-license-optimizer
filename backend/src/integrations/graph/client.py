@@ -1,7 +1,7 @@
 """
 GR02, GR03, GR06: Microsoft Graph API client with retry logic
 """
-from typing import Optional
+from typing import Any, Optional
 
 import aiohttp
 import structlog
@@ -13,6 +13,7 @@ from tenacity import (
 )
 
 from src.core.config import settings
+
 from .exceptions import GraphAPIError, GraphThrottlingError
 
 logger = structlog.get_logger(__name__)
@@ -35,12 +36,12 @@ class GraphClient:
             self._session = aiohttp.ClientSession()
         return self._session
 
-    async def close(self):
+    async def close(self) -> None:
         """Close aiohttp session"""
         if self._session and not self._session.closed:
             await self._session.close()
 
-    def _get_headers(self) -> dict:
+    def _get_headers(self) -> dict[str, str]:
         """Get default headers for Graph API requests"""
         return {
             "Authorization": f"Bearer {self.access_token}",
@@ -54,7 +55,7 @@ class GraphClient:
         wait=wait_exponential(multiplier=1, min=2, max=32),
         reraise=True,
     )
-    async def _make_request(self, method: str, url: str, **kwargs) -> dict:
+    async def _make_request(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
         """
         Make HTTP request to Graph API with retry on throttling.
 
@@ -116,7 +117,7 @@ class GraphClient:
 
                 # Success
                 data = await resp.json()
-                return data
+                return data  # type: ignore[no-any-return]
 
         except aiohttp.ClientError as e:
             logger.error("graph_api_request_failed", url=url, error=str(e))
@@ -273,7 +274,7 @@ class GraphClient:
             display_name=org.get("displayName"),
         )
 
-        return org
+        return org  # type: ignore[no-any-return]
 
     async def get_user_member_of(self, user_id: str) -> list[dict]:
         """

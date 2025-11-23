@@ -2,8 +2,9 @@
 Application configuration using Pydantic Settings
 """
 import os
-from typing import Literal
-from pydantic import Field, model_validator
+from typing import Any, Literal
+
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,8 +21,8 @@ class Settings(BaseSettings):
     )
     # Application
     APP_NAME: str = "M365 License Optimizer"
-    APP_VERSION: str = "0.3.0"
-    LOT_NUMBER: int = 3
+    APP_VERSION: str = "0.4.0"
+    LOT_NUMBER: int = 4
     ENVIRONMENT: Literal["development", "test", "production"] = "development"
     LOG_LEVEL: str = "INFO"
     # Database
@@ -60,21 +61,44 @@ class Settings(BaseSettings):
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 100
     RATE_LIMIT_PER_DAY: int = 1000
-    # Microsoft Graph
+
+    # Microsoft Graph (LOT4)
+    ENCRYPTION_KEY: str  # Fernet key for encrypting client secrets
     GRAPH_API_BASE_URL: str = "https://graph.microsoft.com/v1.0"
-    GRAPH_API_SCOPES: str = "https://graph.microsoft.com/.default"
+    GRAPH_API_SCOPES: list[str] = ["https://graph.microsoft.com/.default"]
+    GRAPH_API_BETA_URL: str = "https://graph.microsoft.com/beta"
+    GRAPH_API_AUTHORITY: str = "https://login.microsoftonline.com"
+    GRAPH_MAX_RETRIES: int = 3
+    GRAPH_RETRY_BACKOFF_FACTOR: int = 2
+    GRAPH_REQUEST_TIMEOUT: int = 30
+
+    @field_validator("ENCRYPTION_KEY")
+    @classmethod
+    def validate_encryption_key(cls, v: str) -> str:
+        """Validate Fernet encryption key format"""
+        if not v or v == "CHANGE_ME_TO_FERNET_KEY_32_BYTES_BASE64_ENCODED":
+            raise ValueError(
+                "ENCRYPTION_KEY must be set in .env. "
+                "This key is required to securely encrypt client secrets in the database.\n"
+                "To generate a valid key, run this command in your terminal:\n"
+                'python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
+            )
+        # Try to load as Fernet key
+        from cryptography.fernet import Fernet
+
+        try:
+            Fernet(v.encode())
+        except Exception as e:
+            raise ValueError(f"Invalid Fernet key: {e}") from e
+        return v
 
     @model_validator(mode="after")
     def assemble_connections(self) -> "Settings":
-        # Interpolate DATABASE_URL if it contains placeholders
-        if "%(POSTGRES_USER)s" in self.DATABASE_URL:
-            self.DATABASE_URL = self.DATABASE_URL % {
-                "POSTGRES_USER": self.POSTGRES_USER,
-                "POSTGRES_PASSWORD": self.POSTGRES_PASSWORD,
-                "POSTGRES_HOST": self.POSTGRES_HOST,
-                "POSTGRES_PORT": self.POSTGRES_PORT,
-                "POSTGRES_DB": self.POSTGRES_DB,
-            }
+        # Always construct DATABASE_URL from components to ensure consistency
+        self.DATABASE_URL = (
+            f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
         # Interpolate AZURE_AD_AUTHORITY if it contains placeholder
         if "${AZURE_AD_TENANT_ID}" in self.AZURE_AD_AUTHORITY:
             self.AZURE_AD_AUTHORITY = self.AZURE_AD_AUTHORITY.replace(
@@ -93,7 +117,7 @@ class Settings(BaseSettings):
 
         return self
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
 
