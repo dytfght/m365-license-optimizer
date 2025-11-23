@@ -2,13 +2,12 @@ name: 🚀 Deploy M365 License Optimizer (Bicep)
 
 on:
   push:
-    branches: [ main, lot2 ]
+    branches: [ main ]
   workflow_dispatch:
 
 env:
-  AZURE_RESOURCE_GROUP: m365-optimizer-dev
+  AZURE_RESOURCE_GROUP: m365-optimizer-prod
   AZURE_LOCATION: francecentral
-  # Ces variables sont passées au fichier Bicep
   POSTGRES_SERVER_NAME: m365optimizerdb
   POSTGRES_DATABASE_NAME: m365_optimizer
   POSTGRES_ADMIN_USER: adminuser
@@ -20,6 +19,8 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,15 +31,18 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Create Resource Group
-        run: az group create --name ${{ env.AZURE_RESOURCE_GROUP }} --location ${{ env.AZURE_LOCATION }}
+        run: |
+          az group create \
+            --name ${{ env.AZURE_RESOURCE_GROUP }} \
+            --location ${{ env.AZURE_LOCATION }}
 
-      # ÉTAPE CLÉ : Déploiement de l'Infrastructure via Bicep
+      # Déploiement Infrastructure via Bicep
       - name: Deploy Infrastructure (Bicep)
         uses: azure/arm-deploy@v1
         with:
           subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP }}
-          template: ./Main.bicep
+          template: ./infrastructure/Main.bicep
           parameters: >
             postgresServerName=${{ env.POSTGRES_SERVER_NAME }}
             postgresDbName=${{ env.POSTGRES_DATABASE_NAME }}
@@ -49,60 +53,136 @@ jobs:
             appServicePlanName=${{ env.APP_SERVICE_PLAN }}
             webAppName=${{ env.WEBAPP_BACKEND_NAME }}
 
-      # Build & Push Docker (L'infra est prête, l'ACR existe grâce à l'étape précédente)
+      # Build & Push Docker Images
       - name: Login to ACR
         run: az acr login --name ${{ env.ACR_NAME }}
 
       - name: Build & Push Backend Image
         run: |
-          docker build -f backend/Dockerfile -t ${{ env.ACR_NAME }}.azurecr.io/m365-optimizer-backend:latest backend
-          docker push ${{ env.ACR_NAME }}.azurecr.io/m365-optimizer-backend:latest
+          docker build \
+            -f backend/Dockerfile \
+            -t ${{ env.ACR_NAME }}.azurecr.io/m365-backend:${{ github.sha }} \
+            -t ${{ env.ACR_NAME }}.azurecr.io/m365-backend:latest \
+            backend
+          
+          docker push ${{ env.ACR_NAME }}.azurecr.io/m365-backend:${{ github.sha }}
+          docker push ${{ env.ACR_NAME }}.azurecr.io/m365-backend:latest
 
-      # Initialisation DB (Protégée contre la réexécution)
-      - name: DB Initialization (First Time Only)
+      # ✅ CORRECTION: Initialisation DB via Alembic (pas init.sql)
+      - name: Database Migration (Alembic)
         env:
           PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
           PGSSLMODE: require
         run: |
-          sudo apt-get update && sudo apt-get install -y postgresql-client
+          # Installation PostgreSQL client
+          sudo apt-get update && sudo apt-get install -y postgresql-client python3-pip
           
-          # Ajout IP Runner temporaire
-          IP=$(curl -s https://api.ipify.org)
-          echo "Adding Runner IP: $IP"
-          az postgres flexible-server firewall-rule create -g ${{ env.AZURE_RESOURCE_GROUP }} -n ${{ env.POSTGRES_SERVER_NAME }} --rule-name GitHubRunner --start-ip-address $IP --end-ip-address $IP
-
-          # Wait for firewall propagation
-          sleep 10
-
-          # Vérifier si le schéma 'optimizer' existe déjà
-          DB_HAS_SCHEMA=$(psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
-               -U ${{ env.POSTGRES_ADMIN_USER }} \
-               -d ${{ env.POSTGRES_DATABASE_NAME }} \
-               -tAc "SELECT 1 FROM information_schema.schemata WHERE schema_name='optimizer'" || echo "0")
-
-          if [ "$DB_HAS_SCHEMA" = "1" ]; then
-            echo "✅ Schema 'optimizer' already exists - skipping init.sql"
-            echo "💡 Database is already initialized. Use Alembic migrations for schema updates."
+          # Installation Alembic
+          pip install alembic asyncpg sqlalchemy
+          
+          # Ajout IP Runner temporaire au firewall
+          RUNNER_IP=$(curl -s https://api.ipify.org)
+          echo "🔓 Adding runner IP: $RUNNER_IP"
+          
+          az postgres flexible-server firewall-rule create \
+            -g ${{ env.AZURE_RESOURCE_GROUP }} \
+            -n ${{ env.POSTGRES_SERVER_NAME }} \
+            --rule-name github-runner-temp \
+            --start-ip-address $RUNNER_IP \
+            --end-ip-address $RUNNER_IP
+          
+          # Attente propagation firewall
+          sleep 15
+          
+          # ✅ Vérifier si le schéma optimizer existe
+          SCHEMA_EXISTS=$(psql \
+            -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
+            -U ${{ env.POSTGRES_ADMIN_USER }} \
+            -d ${{ env.POSTGRES_DATABASE_NAME }} \
+            -tAc "SELECT EXISTS(SELECT 1 FROM information_schema.schemata WHERE schema_name='optimizer')" \
+            || echo "false")
+          
+          if [ "$SCHEMA_EXISTS" = "t" ]; then
+            echo "✅ Schema 'optimizer' exists"
           else
-            echo "🆕 Initializing database schema for the first time..."
-            psql -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
-                 -U ${{ env.POSTGRES_ADMIN_USER }} \
-                 -d ${{ env.POSTGRES_DATABASE_NAME }} \
-                 -f docker/db/init.sql
-            echo "✅ Database initialized with init.sql"
+            echo "🆕 Creating schema 'optimizer' for first deployment"
+            psql \
+              -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
+              -U ${{ env.POSTGRES_ADMIN_USER }} \
+              -d ${{ env.POSTGRES_DATABASE_NAME }} \
+              -c "CREATE SCHEMA IF NOT EXISTS optimizer;"
           fi
-               
-          # Nettoyage de la règle firewall (Bonne pratique)
-          az postgres flexible-server firewall-rule delete -g ${{ env.AZURE_RESOURCE_GROUP }} -n ${{ env.POSTGRES_SERVER_NAME }} --rule-name GitHubRunner --yes
+          
+          # ✅ Appliquer les migrations Alembic
+          echo "🔄 Running Alembic migrations..."
+          cd backend
+          
+          export DATABASE_URL="postgresql+asyncpg://${{ env.POSTGRES_ADMIN_USER }}:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com:5432/${{ env.POSTGRES_DATABASE_NAME }}?ssl=require"
+          
+          alembic upgrade head
+          
+          # Vérifier l'état des migrations
+          CURRENT_VERSION=$(psql \
+            -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
+            -U ${{ env.POSTGRES_ADMIN_USER }} \
+            -d ${{ env.POSTGRES_DATABASE_NAME }} \
+            -tAc "SELECT version_num FROM alembic_version" \
+            || echo "none")
+          
+          echo "✅ Database migrated to version: $CURRENT_VERSION"
+          
+          # Afficher les tables créées
+          echo "📊 Tables in optimizer schema:"
+          psql \
+            -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
+            -U ${{ env.POSTGRES_ADMIN_USER }} \
+            -d ${{ env.POSTGRES_DATABASE_NAME }} \
+            -c "SELECT tablename FROM pg_tables WHERE schemaname='optimizer' ORDER BY tablename;"
+          
+          # Nettoyage firewall
+          az postgres flexible-server firewall-rule delete \
+            -g ${{ env.AZURE_RESOURCE_GROUP }} \
+            -n ${{ env.POSTGRES_SERVER_NAME }} \
+            --rule-name github-runner-temp \
+            --yes
 
-      # Restart WebApp pour prendre la nouvelle image
-      - name: Restart Web App
-        run: az webapp restart -g ${{ env.AZURE_RESOURCE_GROUP }} -n ${{ env.WEBAPP_BACKEND_NAME }}
-
-      - name: Output URLs
+      # Configuration App Service
+      - name: Configure Web App Settings
         run: |
-          echo "=================================="
-          echo "DÉPLOIEMENT RÉUSSI"
-          echo "=================================="
-          echo "Backend : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net"
-          echo "Swagger : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/docs"
+          az webapp config appsettings set \
+            -g ${{ env.AZURE_RESOURCE_GROUP }} \
+            -n ${{ env.WEBAPP_BACKEND_NAME }} \
+            --settings \
+              DATABASE_URL="postgresql+asyncpg://${{ env.POSTGRES_ADMIN_USER }}:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com:5432/${{ env.POSTGRES_DATABASE_NAME }}?ssl=require" \
+              REDIS_URL="rediss://:${{ secrets.REDIS_PASSWORD }}@${{ env.REDIS_CACHE_NAME }}.redis.cache.windows.net:6380/0" \
+              JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" \
+              AZURE_AD_TENANT_ID="${{ secrets.AZURE_AD_TENANT_ID }}" \
+              AZURE_AD_CLIENT_ID="${{ secrets.AZURE_AD_CLIENT_ID }}" \
+              AZURE_AD_CLIENT_SECRET="${{ secrets.AZURE_AD_CLIENT_SECRET }}" \
+              ENVIRONMENT="production"
+
+      # Déploiement de l'image Docker
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.WEBAPP_BACKEND_NAME }}
+          images: ${{ env.ACR_NAME }}.azurecr.io/m365-backend:${{ github.sha }}
+
+      - name: Restart Web App
+        run: |
+          az webapp restart \
+            -g ${{ env.AZURE_RESOURCE_GROUP }} \
+            -n ${{ env.WEBAPP_BACKEND_NAME }}
+
+      - name: Output Deployment URLs
+        run: |
+          echo "=================================================="
+          echo "🚀 DÉPLOIEMENT RÉUSSI"
+          echo "=================================================="
+          echo "Backend API : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net"
+          echo "Swagger Docs: https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/docs"
+          echo "Health Check: https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/health"
+          echo "=================================================="
+          echo "Database: ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com"
+          echo "Redis   : ${{ env.REDIS_CACHE_NAME }}.redis.cache.windows.net"
+          echo "=================================================="
