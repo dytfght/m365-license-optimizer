@@ -31,6 +31,9 @@ hiredis==2.2.3
 # Logging
 structlog==23.2.0
 
+# Rate Limiting
+slowapi==0.1.9
+
 # Testing
 pytest==7.4.3
 pytest-asyncio==0.21.1

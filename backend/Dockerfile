@@ -1,49 +1,73 @@
 # ============================================
 # M365 License Optimizer - Backend Dockerfile
+# Multi-stage build for optimized production image
 # FastAPI + PostgreSQL + Redis
 # ============================================
 
-FROM python:3.12-slim
+# ============================================
+# Stage 1: Builder
+# ============================================
+FROM python:3.12-slim AS builder
 
-# Variables d'environnement
+# Set build environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Répertoire de travail
-WORKDIR /app
-
-# Installer les dépendances système (y compris build-essential pour hiredis)
+# Install build dependencies
 RUN apt-get update && apt-get install -y \
-    postgresql-client \
     build-essential \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Copier les requirements
-COPY requirements.txt .
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Installer les dépendances Python
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Nettoyer les build tools pour réduire la taille de l'image
-RUN apt-get purge -y --auto-remove build-essential
+# ============================================
+# Stage 2: Runtime
+# ============================================
+FROM python:3.12-slim AS runtime
 
-# Copier le code source
-COPY src ./src
-COPY alembic ./alembic
-COPY alembic.ini .
+# Runtime environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:$PATH"
 
-# Créer un utilisateur non-root
+# Install only runtime dependencies (no build tools)
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+
+# Create app directory
+WORKDIR /app
+
+# Create non-root user early
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+
+# Copy application code
+COPY --chown=appuser:appuser src ./src
+COPY --chown=appuser:appuser alembic ./alembic
+COPY --chown=appuser:appuser alembic.ini .
+
+# Switch to non-root user
 USER appuser
 
-# Port exposé
+# Expose port
 EXPOSE 8000
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health', timeout=2)" || exit 1
+    CMD curl -f http://localhost:8000/health || exit 1
 
-# Commande de démarrage
+# Start application
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

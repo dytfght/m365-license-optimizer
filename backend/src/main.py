@@ -16,6 +16,14 @@ from .api.v1.endpoints import health
 from .core.config import settings
 from .core.database import close_db
 from .core.logging import configure_logging
+from .core.middleware import (
+    AuditLogMiddleware,
+    RequestIDMiddleware,
+    SecurityHeadersMiddleware,
+    TransactionMiddleware,
+    limiter,
+    rate_limit_exceeded_handler,
+)
 
 # Configure structured logging first
 configure_logging()
@@ -56,8 +64,27 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# Add rate limiter to app state
+app.state.limiter = limiter
+app.add_exception_handler(Exception, rate_limit_exceeded_handler)
 
-# CORS middleware
+
+# ============================================
+# Middleware Registration (order matters!)
+# ============================================
+# 1. Request ID (first - sets up request context)
+app.add_middleware(RequestIDMiddleware)
+
+# 2. Security Headers (early - protects all responses)
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 3. Transaction Management
+app.add_middleware(TransactionMiddleware)
+
+# 4. Audit Logging (last - captures all request details)
+app.add_middleware(AuditLogMiddleware)
+
+# 5. CORS middleware (FastAPI built-in)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
