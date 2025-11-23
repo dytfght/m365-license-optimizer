@@ -55,7 +55,7 @@ jobs:
 
       - name: Build & Push Backend Image
         run: |
-          docker build -f backend/Dockerfile -t ${{ env.ACR_NAME }}.azurecr.io/m365-optimizer-backend:latest .
+          docker build -f backend/Dockerfile -t ${{ env.ACR_NAME }}.azurecr.io/m365-optimizer-backend:latest backend
           docker push ${{ env.ACR_NAME }}.azurecr.io/m365-optimizer-backend:latest
 
       # Initialisation DB (Protégée contre la réexécution)
