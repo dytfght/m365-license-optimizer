@@ -35,9 +35,9 @@ async def lifespan(app: FastAPI):
         lot=settings.LOT_NUMBER,
         environment=settings.ENVIRONMENT,
     )
-    
+
     yield  # Application runs here
-    
+
     # === SHUTDOWN ===
     logger.info("application_stopping")
     await close_db()
@@ -54,7 +54,6 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
-
 )
 
 
@@ -122,7 +121,7 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "src.main:app",
         host="0.0.0.0",

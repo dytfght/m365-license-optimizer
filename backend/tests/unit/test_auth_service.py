@@ -15,7 +15,7 @@ from src.services.auth_service import AuthenticationError, AuthService
 @pytest.mark.unit
 class TestAuthService:
     """Tests for AuthService"""
-    
+
     @pytest.mark.asyncio
     async def test_authenticate_user_success(self, db_session: AsyncSession):
         """Test successful user authentication"""
@@ -29,7 +29,7 @@ class TestAuthService:
         )
         db_session.add(tenant)
         await db_session.flush()
-        
+
         # Create a user with password
         password = "SecurePassword123!"
         user = User(
@@ -42,16 +42,16 @@ class TestAuthService:
         )
         db_session.add(user)
         await db_session.commit()
-        
+
         # Test authentication
         auth_service = AuthService(db_session)
         user_data = await auth_service.authenticate_user("user@test.com", password)
-        
+
         assert user_data is not None
         assert user_data["email"] == "user@test.com"
         assert user_data["display_name"] == "Test User"
         assert "id" in user_data
-    
+
     @pytest.mark.asyncio
     async def test_authenticate_user_wrong_password(self, db_session: AsyncSession):
         """Test authentication with wrong password"""
@@ -63,7 +63,7 @@ class TestAuthService:
         )
         db_session.add(tenant)
         await db_session.flush()
-        
+
         # Create a user
         password = "SecurePassword123!"
         user = User(
@@ -75,20 +75,20 @@ class TestAuthService:
         )
         db_session.add(user)
         await db_session.commit()
-        
+
         # Test with wrong password
         auth_service = AuthService(db_session)
         with pytest.raises(AuthenticationError, match="Invalid credentials"):
             await auth_service.authenticate_user("user@test.com", "WrongPassword!")
-    
+
     @pytest.mark.asyncio
     async def test_authenticate_user_not_found(self, db_session: AsyncSession):
         """Test authentication with non-existent user"""
         auth_service = AuthService(db_session)
-        
+
         with pytest.raises(AuthenticationError, match="Invalid credentials"):
             await auth_service.authenticate_user("nonexistent@test.com", "password")
-    
+
     @pytest.mark.asyncio
     async def test_authenticate_disabled_account(self, db_session: AsyncSession):
         """Test authentication with disabled account"""
@@ -100,7 +100,7 @@ class TestAuthService:
         )
         db_session.add(tenant)
         await db_session.flush()
-        
+
         # Create a disabled user
         password = "SecurePassword123!"
         user = User(
@@ -112,12 +112,12 @@ class TestAuthService:
         )
         db_session.add(user)
         await db_session.commit()
-        
+
         # Test authentication
         auth_service = AuthService(db_session)
         with pytest.raises(AuthenticationError, match="Account is disabled"):
             await auth_service.authenticate_user("user@test.com", password)
-    
+
     @pytest.mark.asyncio
     async def test_create_tokens(self, db_session: AsyncSession):
         """Test token creation"""
@@ -127,15 +127,15 @@ class TestAuthService:
             "tenant_client_id": uuid4(),
             "display_name": "Test User",
         }
-        
+
         auth_service = AuthService(db_session)
         tokens = await auth_service.create_tokens(user_data)
-        
+
         assert tokens.access_token is not None
         assert tokens.refresh_token is not None
         assert tokens.token_type == "bearer"
         assert tokens.expires_in > 0
-    
+
     @pytest.mark.asyncio
     async def test_refresh_access_token_success(self, db_session: AsyncSession):
         """Test successful token refresh"""
@@ -147,7 +147,7 @@ class TestAuthService:
         )
         db_session.add(tenant)
         await db_session.flush()
-        
+
         # Create a user
         user = User(
             graph_id="user-graph-123",
@@ -157,7 +157,7 @@ class TestAuthService:
         )
         db_session.add(user)
         await db_session.commit()
-        
+
         # Create tokens
         user_data = {
             "id": user.id,
@@ -167,22 +167,24 @@ class TestAuthService:
         }
         auth_service = AuthService(db_session)
         tokens = await auth_service.create_tokens(user_data)
-        
+
         # Refresh the token
         new_token_data = await auth_service.refresh_access_token(tokens.refresh_token)
-        
+
         assert new_token_data["access_token"] is not None
         assert new_token_data["token_type"] == "bearer"
         assert new_token_data["expires_in"] > 0
-    
+
     @pytest.mark.asyncio
     async def test_refresh_with_invalid_token(self, db_session: AsyncSession):
         """Test refresh with invalid token"""
         auth_service = AuthService(db_session)
-        
-        with pytest.raises(AuthenticationError, match="Invalid or expired refresh token"):
+
+        with pytest.raises(
+            AuthenticationError, match="Invalid or expired refresh token"
+        ):
             await auth_service.refresh_access_token("invalid.token.here")
-    
+
     @pytest.mark.asyncio
     async def test_refresh_with_access_token_fails(self, db_session: AsyncSession):
         """Test that refresh fails when using access token instead of refresh token"""
@@ -194,7 +196,7 @@ class TestAuthService:
         )
         db_session.add(tenant)
         await db_session.flush()
-        
+
         user = User(
             graph_id="user-graph-123",
             tenant_client_id=tenant.id,
@@ -203,7 +205,7 @@ class TestAuthService:
         )
         db_session.add(user)
         await db_session.commit()
-        
+
         # Create tokens
         user_data = {
             "id": user.id,
@@ -213,7 +215,7 @@ class TestAuthService:
         }
         auth_service = AuthService(db_session)
         tokens = await auth_service.create_tokens(user_data)
-        
+
         # Try to refresh with access token (should fail)
         with pytest.raises(AuthenticationError, match="Invalid token type"):
             await auth_service.refresh_access_token(tokens.access_token)

@@ -1,6 +1,8 @@
 """
 Database configuration and session management
 """
+from typing import AsyncGenerator
+
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -25,10 +27,10 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency for FastAPI routes to get database session.
-    
+
     Usage:
         @app.get("/endpoint")
         async def endpoint(db: AsyncSession = Depends(get_db)):
@@ -51,10 +53,10 @@ async def init_db():
     Used for testing or initial setup.
     """
     from ..models.base import Base
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     logger.info("database_initialized")
 
 

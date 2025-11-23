@@ -2,7 +2,7 @@
 Business logic for tenant management
 """
 from datetime import datetime, timezone  # ← AJOUTER timezone
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 import structlog
@@ -17,12 +17,12 @@ logger = structlog.get_logger(__name__)
 
 class TenantService:
     """Service for tenant business logic"""
-    
+
     def __init__(self, session: AsyncSession):
         self.session = session
         self.repo = TenantRepository(session)
         self.graph_auth = GraphAuthService()
-    
+
     async def create_tenant(
         self,
         name: str,
@@ -32,11 +32,11 @@ class TenantService:
         client_secret: str,
         scopes: list[str],
         default_language: str = "fr",
-        csp_customer_id: Optional[str] = None
+        csp_customer_id: Optional[str] = None,
     ) -> dict:
         """
         Create a new tenant with app registration.
-        
+
         Args:
             name: Tenant display name
             tenant_id: Azure AD Tenant ID
@@ -46,7 +46,7 @@ class TenantService:
             scopes: List of Graph API scopes
             default_language: Default language (fr or en)
             csp_customer_id: Optional Partner Center customer ID
-        
+
         Returns:
             dict with tenant info
         """
@@ -54,7 +54,7 @@ class TenantService:
         existing = await self.repo.get_by_tenant_id(tenant_id)
         if existing:
             raise ValueError(f"Tenant {tenant_id} already exists")
-        
+
         # Prepare data
         tenant_data = {
             "name": name,
@@ -64,9 +64,9 @@ class TenantService:
             "onboarding_status": OnboardingStatus.PENDING,
             "csp_customer_id": csp_customer_id,
         }
-        
+
         authority_url = f"https://login.microsoftonline.com/{tenant_id}"
-        
+
         app_reg_data = {
             "client_id": client_id,
             "client_secret_encrypted": client_secret,  # TODO: Encrypt in production
@@ -74,23 +74,18 @@ class TenantService:
             "scopes": scopes,
             "consent_status": ConsentStatus.PENDING,
         }
-        
+
         # Create tenant with app registration
-        tenant = await self.repo.create_with_app_registration(
-            tenant_data, app_reg_data
-        )
+        tenant = await self.repo.create_with_app_registration(tenant_data, app_reg_data)
         await self.session.commit()
-        
+
         # ← CORRECTION : Rafraîchir l'objet pour obtenir created_at et autres champs de la DB
         await self.session.refresh(tenant)
-        
+
         logger.info(
-            "tenant_created",
-            tenant_id=tenant.id,
-            azure_tenant_id=tenant_id,
-            name=name
+            "tenant_created", tenant_id=tenant.id, azure_tenant_id=tenant_id, name=name
         )
-        
+
         # ← CORRECTION : Retourner tous les champs requis par TenantResponse
         return {
             "id": str(tenant.id),
@@ -100,36 +95,37 @@ class TenantService:
             "status": tenant.onboarding_status.value,
             "created_at": tenant.created_at,  # ← AJOUTER (objet datetime, pas string)
         }
-    
+
     async def validate_tenant_credentials(self, tenant_id: UUID) -> dict:
         """
         Validate tenant app registration credentials by attempting to get a token.
-        
+
         Args:
             tenant_id: Internal tenant ID
-        
+
         Returns:
             dict with validation result
         """
         tenant = await self.repo.get_with_app_registration(tenant_id)
         if not tenant or not tenant.app_registration:
             raise ValueError(f"Tenant {tenant_id} or app registration not found")
-        
+
         app_reg = tenant.app_registration
-        
+
         try:
             # Attempt to get token
+            if not app_reg.client_secret_encrypted:
+                raise ValueError(f"Tenant {tenant_id} has no client secret configured")
+
             token = await self.graph_auth.get_token(
-                tenant.tenant_id,
-                app_reg.client_id,
-                app_reg.client_secret_encrypted
+                tenant.tenant_id, app_reg.client_id, app_reg.client_secret_encrypted
             )
-            
+
             # Try to call Graph API to verify permissions
             graph_client = GraphClient(token)
             try:
                 org = await graph_client.get_organization()
-                
+
                 # Update app registration status
                 # ← CORRECTION : Utiliser timezone.utc
                 await self.repo.update_app_registration(
@@ -137,21 +133,23 @@ class TenantService:
                     is_valid=True,
                     last_validated_at=datetime.now(timezone.utc),  # ← CORRIGER
                     consent_status=ConsentStatus.GRANTED,
-                    consent_granted_at=datetime.now(timezone.utc)  # ← CORRIGER
+                    consent_granted_at=datetime.now(timezone.utc),  # ← CORRIGER
                 )
-                
+
                 # Update tenant status
                 if tenant.onboarding_status == OnboardingStatus.PENDING:
-                    await self.repo.update(tenant, onboarding_status=OnboardingStatus.ACTIVE)
-                
+                    await self.repo.update(
+                        tenant, onboarding_status=OnboardingStatus.ACTIVE
+                    )
+
                 await self.session.commit()
-                
+
                 logger.info(
                     "tenant_credentials_validated",
                     tenant_id=tenant_id,
-                    org_name=org.get("displayName")
+                    org_name=org.get("displayName"),
                 )
-                
+
                 return {
                     "valid": True,
                     "organization": org.get("displayName"),
@@ -159,33 +157,31 @@ class TenantService:
                 }
             finally:
                 await graph_client.close()
-        
+
         except Exception as e:
             logger.error(
                 "tenant_credentials_validation_failed",
                 tenant_id=tenant_id,
-                error=str(e)
+                error=str(e),
             )
-            
+
             # Update status
             await self.repo.update_app_registration(
-                tenant_id,
-                is_valid=False,
-                consent_status=ConsentStatus.EXPIRED
+                tenant_id, is_valid=False, consent_status=ConsentStatus.EXPIRED
             )
             await self.session.commit()
-            
+
             return {
                 "valid": False,
                 "error": str(e),
             }
         finally:
             await self.graph_auth.close()
-    
+
     async def get_all_tenants(self) -> list[dict]:
         """Get all tenants"""
         tenants = await self.repo.get_all(limit=1000)
-        
+
         return [
             {
                 "id": str(t.id),
@@ -197,15 +193,15 @@ class TenantService:
             }
             for t in tenants
         ]
-    
+
     async def get_tenant_by_id(self, tenant_id: UUID) -> dict:
         """Get tenant by ID"""
         tenant = await self.repo.get_with_app_registration(tenant_id)
-        
+
         if not tenant:
             raise ValueError(f"Tenant {tenant_id} not found")
-        
-        result = {
+
+        result: dict[str, Any] = {
             "id": str(tenant.id),
             "name": tenant.name,
             "tenant_id": tenant.tenant_id,
@@ -214,13 +210,16 @@ class TenantService:
             "status": tenant.onboarding_status.value,
             "created_at": tenant.created_at.isoformat(),
         }
-        
+
         if tenant.app_registration:
-            result["app_registration"] = {
+            app_reg_data: dict[str, str | bool | None] = {
                 "client_id": tenant.app_registration.client_id,
                 "consent_status": tenant.app_registration.consent_status.value,
                 "is_valid": tenant.app_registration.is_valid,
-                "last_validated_at": tenant.app_registration.last_validated_at.isoformat() if tenant.app_registration.last_validated_at else None,
+                "last_validated_at": tenant.app_registration.last_validated_at.isoformat()
+                if tenant.app_registration.last_validated_at
+                else None,
             }
-        
+            result["app_registration"] = app_reg_data
+
         return result

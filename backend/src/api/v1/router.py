@@ -3,7 +3,7 @@ API v1 router aggregation
 """
 from fastapi import APIRouter
 
-from .endpoints import auth, health, tenants
+from .endpoints import auth, tenants
 
 # Create v1 router
 api_router = APIRouter()

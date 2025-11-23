@@ -20,7 +20,7 @@ router = APIRouter(tags=["health"])
 async def basic_health_check():
     """
     Basic health check endpoint.
-    
+
     Returns:
         Health status
     """
@@ -39,10 +39,10 @@ async def detailed_health_check(
 ):
     """
     Detailed health check with database and Redis status.
-    
+
     Args:
         db: Database session
-        
+
     Returns:
         Detailed health check with service statuses
     """
@@ -54,7 +54,7 @@ async def detailed_health_check(
             db_status = "ok"
     except Exception as e:
         logger.error("database_health_check_failed", error=str(e))
-    
+
     # Check Redis connection
     redis_status = "unhealthy"
     try:
@@ -63,10 +63,10 @@ async def detailed_health_check(
             redis_status = "ok"
     except Exception as e:
         logger.error("redis_health_check_failed", error=str(e))
-    
+
     # Overall status
     overall_status = "ok" if db_status == "ok" and redis_status == "ok" else "unhealthy"
-    
+
     return DetailedHealthCheck(
         status=overall_status,
         database=db_status,
@@ -85,7 +85,7 @@ async def detailed_health_check(
 async def get_version():
     """
     Get application version and environment information.
-    
+
     Returns:
         Version information
     """

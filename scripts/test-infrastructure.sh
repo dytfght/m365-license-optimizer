@@ -222,11 +222,7 @@ test_persistence() {
     
     # Insert test data
     TEST_TENANT_ID="persistence-test-$(date +%s)"
-    if docker exec m365_optimizer_db psql -U $POSTGRES_USER -d $POSTGRES_DB -c \
-        "INSERT INTO optimizer.tenant_clients (id, tenant_id, name, country, default_language, onboarding_status) 
- VALUES (gen_random_uuid(), '$TEST_TENANT_ID', 'Persistence Test', 'FR', 'fr', 'PENDING') 
- ON CONFLICT (tenant_id) DO NOTHING;" \
-        > /dev/null 2>&1; then
+    if docker exec m365_optimizer_db psql -U $POSTGRES_USER -d $POSTGRES_DB -c "INSERT INTO optimizer.tenant_clients (id, tenant_id, name, country, default_language, onboarding_status) VALUES (gen_random_uuid(), '$TEST_TENANT_ID', 'Persistence Test', 'FR', 'fr-FR', 'pending') ON CONFLICT (tenant_id) DO NOTHING;" > /dev/null 2>&1; then
         print_success "Test data inserted"
     else
         print_error "Failed to insert test data"

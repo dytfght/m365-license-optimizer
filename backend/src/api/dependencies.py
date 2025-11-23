@@ -35,7 +35,7 @@ async def verify_admin_token(
 ) -> dict:
     """
     Verify admin JWT token (simplified for Lot 2).
-    
+
     In production (Lot 12), this will validate Azure AD tokens.
     For now, accepts any Bearer token for testing.
     """
@@ -45,23 +45,23 @@ async def verify_admin_token(
             detail="Missing authorization header",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     scheme, _, token = authorization.partition(" ")
-    
+
     if scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication scheme",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # TODO: Implement proper JWT validation in Lot 12
     # For now, return mock admin user
     return {

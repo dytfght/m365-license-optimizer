@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copier les requirements
-COPY backend/requirements.txt .
+COPY requirements.txt .
 
 # Installer les dépendances Python
 RUN pip install --no-cache-dir -r requirements.txt
@@ -30,9 +30,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN apt-get purge -y --auto-remove build-essential
 
 # Copier le code source
-COPY backend/src ./src
-COPY backend/alembic ./alembic
-COPY backend/alembic.ini .
+COPY src ./src
+COPY alembic ./alembic
+COPY alembic.ini .
 
 # Créer un utilisateur non-root
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
