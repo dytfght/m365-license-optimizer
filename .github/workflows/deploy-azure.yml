@@ -42,7 +42,7 @@ jobs:
         with:
           subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP }}
-          template: ./infrastructure/Main.bicep
+          template: ./Main.bicep
           parameters: >
             postgresServerName=${{ env.POSTGRES_SERVER_NAME }}
             postgresDbName=${{ env.POSTGRES_DATABASE_NAME }}
