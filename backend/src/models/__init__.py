@@ -2,8 +2,9 @@
 Database models for M365 License Optimizer
 """
 from .base import Base
-from .tenant import TenantClient, TenantAppRegistration
-from .user import User, LicenseAssignment, LicenseStatus, AssignmentSource
+from .tenant import TenantAppRegistration, TenantClient
+from .usage_metrics import UsageMetrics
+from .user import AssignmentSource, LicenseAssignment, LicenseStatus, User
 
 __all__ = [
     "Base",
@@ -13,4 +14,5 @@ __all__ = [
     "LicenseAssignment",
     "LicenseStatus",
     "AssignmentSource",
+    "UsageMetrics",
 ]

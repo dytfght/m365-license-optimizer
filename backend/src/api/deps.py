@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.config import settings
 from ..core.database import get_db
 from ..core.security import decode_token, verify_token_type
+from ..models.user import User
 from ..repositories.user_repository import UserRepository
 from ..schemas.token import TokenPayload
 
@@ -117,7 +118,7 @@ async def get_current_token_payload(
 async def get_current_user(
     token_payload: Annotated[TokenPayload, Depends(get_current_token_payload)],
     db: Annotated[AsyncSession, Depends(get_db)],
-):
+) -> User:
     """
     Get current authenticated user from token.
 

@@ -254,7 +254,7 @@ m365-license-optimizer/
 - **Tests** : pytest + coverage (≥95%)
 - **Docker** : Multi-stage build (~450MB)
 
-### Endpoints Principaux
+### Endpoints Principaux (Lots 3)
 ```
 GET  /health                    # Health check basique
 GET  /api/v1/health             # Health check détaillé (DB + Redis)
@@ -275,6 +275,37 @@ GET  /api/v1/tenants            # Liste des tenants (protégé)
 - **Base URL** : `http://localhost:8000`
 - **Documentation OpenAPI** : `http://localhost:8000/docs`
 - **ReDoc** : `http://localhost:8000/redoc`
+
+
+## 🔗 Architecture Microsoft Graph (Lot 4)
+
+### Stack Technique
+- **MSAL** : Microsoft Authentication Library 1.31.1
+- **Chiffrement** : Fernet (cryptography 42.0.2)
+- **Cache tokens** : Redis avec TTL intelligent (expiry - 5min)
+- **Retry logic** : Exponential backoff sur 429/5xx
+- **Pagination** : Support @odata.nextLink automatique
+
+### Endpoints Microsoft Graph (Lot 4)
+```
+POST /api/v1/tenants/{tenant_id}/sync_users     # Synchronisation utilisateurs Graph
+POST /api/v1/tenants/{tenant_id}/sync_licenses  # Synchronisation licences Graph
+POST /api/v1/tenants/{tenant_id}/sync_usage     # Synchronisation rapports d'usage
+```
+
+**Note** : Ces endpoints nécessitent :
+- JWT authentication (Bearer token)
+- Rate limiting : 1 requête/minute par endpoint
+- Credentials Microsoft Graph configurés dans la table `tenant_app_registrations`
+
+### Services Implémentés
+- `EncryptionService` : Chiffrement/déchiffrement des secrets clients (Fernet)
+- `GraphAuthService` : Acquisition et cache des tokens MSAL
+- `GraphService` : Collecte données depuis Microsoft Graph API
+  - `/users` : Informations utilisateurs
+  - `/subscribedSkus` : Licences souscrites
+  - `/users/{id}/licenseDetails` : Détails licences par utilisateur
+  - Rapports d'usage : Email, OneDrive, SharePoint, Teams (CSV parsing)
 
 
 ## ✅ Critères d'acceptation
@@ -320,6 +351,19 @@ GET  /api/v1/tenants            # Liste des tenants (protégé)
 - [x] Security headers (X-Frame-Options, CSP, HSTS, etc.)
 - [x] Dockerfile multi-stage optimisé (~450MB vs ~800MB)
 - [x] Tests unitaires et d'intégration (coverage ≥ 95%)
+
+### Lot 4 - Microsoft Graph Integration (✅ COMPLET)
+
+- [x] EncryptionService avec Fernet pour secrets clients
+- [x] GraphAuthService avec MSAL (client credentials flow)
+- [x] Cache Redis des tokens avec TTL intelligent
+- [x] GraphService pour collecte données (users, licenses, usage)
+- [x] Endpoints API pour synchronisation (/sync_users, /sync_licenses, /sync_usage)
+- [x] Gestion pagination, retry logic, rate limiting
+- [x] Repositories avec upsert pour éviter doublons
+- [x] Modèle UsageMetrics + schemas Pydantic
+- [x] Configuration ENCRYPTION_KEY dans .env
+- [x] Tests unitaires créés (49 tests - 4 fichiers)
 - [x] CI/CD GitHub Actions (lint, test, build)
 - [x] Documentation OpenAPI complète (/docs, /redoc)
 
@@ -361,7 +405,7 @@ docker-compose up -d
 
 ## 🔬 Backend - Démarrage et Tests
 
-### Démarrage du Backend (Lot 3)
+### Démarrage du Backend (Lots 3 & 4)
 
 ```bash
 # 1. Démarrer l'infrastructure (DB + Redis)
@@ -371,15 +415,27 @@ docker-compose up -d db redis
 cd backend
 pip install -r requirements.txt
 
-# 3. Appliquer les migrations Alembic
+# 3. Générer la clé de chiffrement (LOT4 - première fois uniquement)
+python ../scripts/generate_encryption_key.py
+# Copier la clé générée dans votre .env : ENCRYPTION_KEY=...
+
+# 4. Appliquer les migrations Alembic
 alembic upgrade head
 
-# 4. Démarrer le serveur FastAPI
+# 5. Démarrer le serveur FastAPI
 uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
 # Ou tout démarrer avec Docker Compose
 docker-compose up -d
 ```
+
+**⚠️ Important pour LOT4** :
+- La variable `ENCRYPTION_KEY` est **obligatoire** pour le chiffrement des secrets clients Microsoft Graph
+- Générez-la avec `python scripts/generate_encryption_key.py` ou via Python :
+  ```python
+  from cryptography.fernet import Fernet
+  print(Fernet.generate_key().decode())
+  ```
 
 ### Tester l'API
 
@@ -438,15 +494,27 @@ alembic revision --autogenerate -m "description"
 alembic current
 ```
 
-## 📚 Prochaines étapes
+## 📚 État d'avancement du projet
+
+### 📊 Vue d'ensemble
+| Lot | Description | Status | Progression |
+|-----|-------------|--------|-------------|
+| **1** | Infrastructure Docker | ✅ Terminé | 100% |
+| **2** | Modèle de données PostgreSQL | ✅ Terminé | 100% |
+| **3** | Backend API FastAPI | ✅ Terminé | 100% |
+| **4** | Microsoft Graph Integration | ✅ Terminé | 100% |
+| **5** | Partner Center Integration | ⬜ À venir | 0% |
+| **6** | Jobs de synchronisation | ⬜ À venir | 0% |
+| **7** | Frontend React | ⬜ À venir | 0% |
+| **8-18** | Fonctionnalités avancées | ⬜ À venir | 0% |
 
 ### Lots Terminés ✅
-- **Lot 1** : Infrastructure locale Docker (PostgreSQL + Redis)
-- **Lot 2** : Modèle de données complet avec migrations Alembic
-- **Lot 3** : Backend API FastAPI avec JWT, middleware, tests et CI/CD
+- **Lot 1** : Infrastructure locale Docker (PostgreSQL 15 + Redis 7 + PgAdmin)
+- **Lot 2** : Modèle de données complet avec migrations Alembic (10 tables, indexes, FK)
+- **Lot 3** : Backend API FastAPI avec JWT, middleware, tests (≥95% coverage) et CI/CD
+- **Lot 4** : Intégration Microsoft Graph avec EncryptionService, GraphAuthService, GraphService, endpoints sync, et 49 tests
 
 ### Lots en Cours / À Venir 🚧
-- **Lot 4** : Intégration Microsoft Graph (auth, users, licenses)
 - **Lot 5** : Intégration Microsoft Partner Center (pricing, subscriptions)
 - **Lot 6** : Jobs de synchronisation automatique
 - **Lot 7** : Frontend React

@@ -1,6 +1,7 @@
 """
 Repository for User and LicenseAssignment operations
 """
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -70,7 +71,7 @@ class UserRepository(BaseRepository[User]):
         )
         return result.scalar_one()
 
-    async def upsert_user(self, graph_id: str, **user_data) -> User:
+    async def upsert_user(self, graph_id: str, **user_data: Any) -> User:
         """
         Insert or update user based on graph_id.
 
@@ -103,6 +104,36 @@ class UserRepository(BaseRepository[User]):
             logger.debug("user_created", graph_id=graph_id)
 
         return user
+
+    async def upsert_user_from_graph(
+        self, tenant_client_id: UUID, graph_data: dict
+    ) -> User:
+        """
+        Insert or update user from Microsoft Graph data.
+        Convenience method that extracts relevant fields from Graph response.
+
+        Args:
+            tenant_client_id: Tenant UUID
+            graph_data: User data from Microsoft Graph API
+
+        Returns:
+            User entity
+        """
+        user_data = {
+            "tenant_client_id": tenant_client_id,
+            "user_principal_name": graph_data.get("userPrincipalName", ""),
+            "display_name": graph_data.get("displayName"),
+            "account_enabled": graph_data.get("accountEnabled", True),
+            "department": graph_data.get("department"),
+            "job_title": graph_data.get("jobTitle"),
+            "office_location": graph_data.get("officeLocation"),
+        }
+
+        graph_id = graph_data.get("id")
+        if not graph_id:
+            raise ValueError("Graph user data must include 'id' field")
+
+        return await self.upsert_user(graph_id, **user_data)
 
     async def sync_licenses(
         self, user_id: UUID, licenses: list[dict]

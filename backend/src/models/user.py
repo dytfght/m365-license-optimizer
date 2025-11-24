@@ -8,6 +8,7 @@ from uuid import UUID as UUID_TYPE
 
 if TYPE_CHECKING:
     from .tenant import TenantClient
+    from .usage_metrics import UsageMetrics
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -75,6 +76,9 @@ class User(Base, UUIDMixin, TimestampMixin):
     )
     license_assignments: Mapped[list["LicenseAssignment"]] = relationship(
         "LicenseAssignment", back_populates="user", cascade="all, delete-orphan"
+    )
+    usage_metrics: Mapped[list["UsageMetrics"]] = relationship(
+        "UsageMetrics", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

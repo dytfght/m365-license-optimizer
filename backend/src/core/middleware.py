@@ -28,10 +28,10 @@ def get_user_identifier(request: Request) -> str:
     """
     Get unique identifier for rate limiting.
     Prioritizes user ID from token, falls back to IP address.
-    
+
     Args:
         request: FastAPI request object
-        
+
     Returns:
         User identifier string
     """
@@ -39,7 +39,7 @@ def get_user_identifier(request: Request) -> str:
     user = getattr(request.state, "user", None)
     if user:
         return f"user:{user.id}"
-    
+
     # Fall back to IP address
     return f"ip:{get_remote_address(request)}"
 
@@ -55,14 +55,16 @@ limiter = Limiter(
 )
 
 
-async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+async def rate_limit_exceeded_handler(
+    request: Request, exc: RateLimitExceeded
+) -> JSONResponse:
     """
     Custom handler for rate limit exceeded errors.
-    
+
     Args:
         request: FastAPI request object
         exc: RateLimitExceeded exception
-        
+
     Returns:
         JSON response with 429 status
     """
@@ -71,7 +73,7 @@ async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
         path=request.url.path,
         identifier=get_user_identifier(request),
     )
-    
+
     return JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         content={
@@ -91,43 +93,49 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     Middleware to add security headers to all responses.
     Implements OWASP security best practices.
     """
-    
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
         Add security headers to response.
-        
+
         Args:
             request: Incoming request
             call_next: Next middleware/route handler
-            
+
         Returns:
             Response with security headers
         """
         response = await call_next(request)
-        
+
         # Prevent clickjacking
         response.headers["X-Frame-Options"] = "DENY"
-        
+
         # Prevent MIME type sniffing
         response.headers["X-Content-Type-Options"] = "nosniff"
-        
+
         # Enable XSS protection
         response.headers["X-XSS-Protection"] = "1; mode=block"
-        
+
         # Content Security Policy (strict for API)
-        response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
-        
+        response.headers[
+            "Content-Security-Policy"
+        ] = "default-src 'none'; frame-ancestors 'none'"
+
         # Referrer Policy
         response.headers["Referrer-Policy"] = "no-referrer"
-        
+
         # Permissions Policy (disable unnecessary features)
-        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-        
+        response.headers[
+            "Permissions-Policy"
+        ] = "geolocation=(), microphone=(), camera=()"
+
         # HSTS (if in production and using HTTPS)
         if settings.ENVIRONMENT == "production":
-            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        
-        return response
+            response.headers[
+                "Strict-Transport-Security"
+            ] = "max-age=31536000; includeSubDomains"
+
+        return response  # type: ignore[no-any-return]
 
 
 # ============================================
@@ -140,31 +148,31 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     Middleware to add unique request ID to each request.
     Useful for request tracing and debugging.
     """
-    
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
         Add request ID to request state and response headers.
-        
+
         Args:
             request: Incoming request
             call_next: Next middleware/route handler
-            
+
         Returns:
             Response with X-Request-ID header
         """
         # Generate or extract request ID
         request_id = request.headers.get("X-Request-ID", str(uuid4()))
-        
+
         # Store in request state for access in route handlers
         request.state.request_id = request_id
-        
+
         # Bind to structlog context
         structlog.contextvars.bind_contextvars(request_id=request_id)
-        
+
         try:
             response = await call_next(request)
             response.headers["X-Request-ID"] = request_id
-            return response
+            return response  # type: ignore[no-any-return]
         finally:
             # Clear context after request
             structlog.contextvars.clear_contextvars()
@@ -180,26 +188,26 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
     Middleware to log all API requests for audit purposes.
     Logs request details, response status, and timing.
     """
-    
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
         Log request and response details.
-        
+
         Args:
             request: Incoming request
             call_next: Next middleware/route handler
-            
+
         Returns:
             Response from route handler
         """
         start_time = time.time()
-        
+
         # Extract request details
         method = request.method
         path = request.url.path
         client_ip = get_remote_address(request)
         user_agent = request.headers.get("user-agent", "unknown")
-        
+
         # Get user if authenticated
         user_id = None
         user_email = None
@@ -207,7 +215,7 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
         if user:
             user_id = str(user.id)
             user_email = user.email
-        
+
         # Call next handler
         try:
             response = await call_next(request)
@@ -220,11 +228,17 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
         finally:
             # Calculate request duration
             duration = time.time() - start_time
-            
+
             # Log audit event
-            log_level = "info" if status_code < 400 else "warning" if status_code < 500 else "error"
+            log_level = (
+                "info"
+                if status_code < 400
+                else "warning"
+                if status_code < 500
+                else "error"
+            )
             log_func = getattr(logger, log_level)
-            
+
             log_func(
                 "api_request",
                 method=method,
@@ -237,8 +251,8 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
                 user_email=user_email,
                 error=error_detail,
             )
-        
-        return response
+
+        return response  # type: ignore[no-any-return]
 
 
 # ============================================
@@ -250,19 +264,19 @@ class TransactionMiddleware(BaseHTTPMiddleware):
     """
     Middleware to manage database transactions automatically.
     Commits on success, rolls back on error.
-    
+
     Note: This is a basic implementation. For production, consider
     using proper transaction scoping with dependencies.
     """
-    
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
         Wrap request in database transaction.
-        
+
         Args:
             request: Incoming request
             call_next: Next middleware/route handler
-            
+
         Returns:
             Response from route handler
         """
@@ -276,9 +290,9 @@ class TransactionMiddleware(BaseHTTPMiddleware):
                 method=request.method,
                 path=request.url.path,
             )
-        
+
         response = await call_next(request)
-        return response
+        return response  # type: ignore[no-any-return]
 
 
 __all__ = [

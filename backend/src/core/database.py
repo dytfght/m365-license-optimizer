@@ -47,7 +47,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
-async def init_db():
+async def init_db() -> None:
     """
     Initialize database (create tables).
     Used for testing or initial setup.
@@ -60,10 +60,23 @@ async def init_db():
     logger.info("database_initialized")
 
 
-async def close_db():
+async def close_db() -> None:
     """
     Close database connections.
     Called on application shutdown.
     """
     await engine.dispose()
     logger.info("database_connections_closed")
+
+
+async def get_redis():  # type: ignore[no-untyped-def]
+    """
+    Get Redis client.
+    """
+    import redis.asyncio as redis
+
+    return redis.from_url(
+        settings.REDIS_URL,
+        encoding="utf-8",
+        decode_responses=True,
+    )

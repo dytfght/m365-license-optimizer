@@ -2,13 +2,14 @@
 GR01: Microsoft Graph authentication service
 Handles client credentials flow for tenant app registrations
 """
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import aiohttp
 import structlog
 
 from src.core.config import settings
+
 from .exceptions import GraphAuthError
 
 logger = structlog.get_logger(__name__)
@@ -20,7 +21,7 @@ class GraphAuthService:
     Implements token caching with automatic refresh.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._token_cache: dict[str, dict] = {}
         self._session: Optional[aiohttp.ClientSession] = None
 
@@ -30,7 +31,7 @@ class GraphAuthService:
             self._session = aiohttp.ClientSession()
         return self._session
 
-    async def close(self):
+    async def close(self) -> None:
         """Close aiohttp session"""
         if self._session and not self._session.closed:
             await self._session.close()
@@ -51,7 +52,7 @@ class GraphAuthService:
         # Refresh if less than 5 minutes remaining
         buffer = timedelta(minutes=5)
         # ← CORRECTION : Utiliser datetime.now(timezone.utc)
-        return datetime.now(timezone.utc) + buffer < expires_at
+        return datetime.now(timezone.utc) + buffer < expires_at  # type: ignore[no-any-return]
 
     async def get_token(
         self,
@@ -83,10 +84,10 @@ class GraphAuthService:
             logger.debug(
                 "graph_token_cache_hit", tenant_id=tenant_id, client_id=client_id
             )
-            return cached["access_token"]
+            return cached["access_token"]  # type: ignore[no-any-return]
 
         # Request new token
-        scope = scope or settings.GRAPH_API_SCOPES
+        scope = scope or " ".join(settings.GRAPH_API_SCOPES)
         token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
 
         data = {
@@ -135,7 +136,7 @@ class GraphAuthService:
                     expires_in=expires_in,
                 )
 
-                return access_token
+                return access_token  # type: ignore[no-any-return]
 
         except aiohttp.ClientError as e:
             logger.error("graph_auth_request_failed", tenant_id=tenant_id, error=str(e))
@@ -143,7 +144,7 @@ class GraphAuthService:
 
     def clear_cache(
         self, tenant_id: Optional[str] = None, client_id: Optional[str] = None
-    ):
+    ) -> None:
         """
         Clear token cache.
 

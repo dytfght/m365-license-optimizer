@@ -1,6 +1,7 @@
-import pytest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone, timedelta
+
+import pytest
 
 from src.integrations.graph import GraphAuthService, GraphClient
 from src.integrations.graph.exceptions import GraphAuthError
