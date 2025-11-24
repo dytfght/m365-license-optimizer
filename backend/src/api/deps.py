@@ -14,9 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.config import settings
 from ..core.database import get_db
 from ..core.security import decode_token, verify_token_type
+from ..models.user import User
 from ..repositories.user_repository import UserRepository
 from ..schemas.token import TokenPayload
-from ..models.user import User
 
 logger = structlog.get_logger(__name__)
 

@@ -33,6 +33,7 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
+ignore_missing_imports = false  # On préfère être explicite
 plugins = ["sqlalchemy.ext.mypy.plugin", "pydantic.mypy"]
 
 [[tool.mypy.overrides]]

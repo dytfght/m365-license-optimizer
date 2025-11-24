@@ -55,7 +55,9 @@ class GraphClient:
         wait=wait_exponential(multiplier=1, min=2, max=32),
         reraise=True,
     )
-    async def _make_request(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
+    async def _make_request(
+        self, method: str, url: str, **kwargs: Any
+    ) -> dict[str, Any]:
         """
         Make HTTP request to Graph API with retry on throttling.
 
