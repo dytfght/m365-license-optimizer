@@ -158,23 +158,23 @@ echo -e "${BLUE}Setting up Python backend...${NC}"
 
 cd backend
 
-# Remove existing venv if corrupted
+# Check if venv exists
 if [ -d "venv" ]; then
-    echo "Removing existing virtual environment..."
-    rm -rf venv
-fi
-
-# Create venv
-echo "Creating virtual environment..."
-python3 -m venv venv
-
-if [ ! -f "venv/bin/activate" ]; then
-    echo -e "${RED}✗ Failed to create virtual environment${NC}"
-    exit 1
+    echo -e "${GREEN}✓ Virtual environment already exists${NC}"
+    echo "Updating dependencies..."
+else
+    echo "Creating virtual environment..."
+    python3 -m venv venv
+    
+    if [ ! -f "venv/bin/activate" ]; then
+        echo -e "${RED}✗ Failed to create virtual environment${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✓ Virtual environment created${NC}"
 fi
 
 # Activate venv and install dependencies
-echo "Installing dependencies..."
+echo "Installing/updating dependencies..."
 source venv/bin/activate
 pip install --upgrade pip > /dev/null 2>&1
 pip install -r requirements.txt > /dev/null 2>&1

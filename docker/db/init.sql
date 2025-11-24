@@ -3,11 +3,12 @@
 -- Version: 3.0 - LOT4 - Alembic-first approach
 -- ============================================
 -- Ce fichier ne crée QUE :
--- 1. Le schéma optimizer
--- 2. Les rôles et permissions
--- 3. Les extensions nécessaires
+-- 1. Le schéma optimizer (Alembic suppose qu'il existe)
+-- 2. Les rôles et permissions (non gérés par Alembic)
+-- 3. Les extensions nécessaires (aucune pour ce projet)
 -- 
 -- TOUTES les tables sont créées par Alembic migrations
+-- Ce fichier est COMPLÉMENTAIRE à Alembic, pas redondant
 -- ============================================
 
 -- Extensions (PostgreSQL 13+ a gen_random_uuid() natif)

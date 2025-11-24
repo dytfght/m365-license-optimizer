@@ -157,26 +157,27 @@ setup-quick: check-docker check-python
 setup-backend: check-python
 	@echo "$(BLUE)Setting up Python backend...$(NC)"
 	@if [ -d "$(VENV)" ]; then \
-		echo "$(YELLOW)Removing existing virtual environment...$(NC)"; \
-		rm -rf $(VENV); \
+		echo "$(GREEN)✓ Virtual environment already exists$(NC)"; \
+		echo "$(YELLOW)Updating dependencies...$(NC)"; \
+	else \
+		echo "$(YELLOW)Creating virtual environment...$(NC)"; \
+		cd $(BACKEND_DIR) && python3 -m venv venv || { \
+			echo "$(RED)✗ Failed to create virtual environment$(NC)"; \
+			echo ""; \
+			echo "$(YELLOW)Install required packages:$(NC)"; \
+			echo "  sudo apt-get update"; \
+			echo "  sudo apt-get install python3 python3-pip python3-venv python3-dev"; \
+			exit 1; \
+		}; \
+		if [ ! -f "$(VENV)/bin/activate" ]; then \
+			echo "$(RED)✗ Virtual environment creation failed$(NC)"; \
+			exit 1; \
+		fi; \
+		echo "$(GREEN)✓ Virtual environment created$(NC)"; \
 	fi
-	@echo "$(YELLOW)Creating virtual environment...$(NC)"
-	@cd $(BACKEND_DIR) && python3 -m venv venv || { \
-		echo "$(RED)✗ Failed to create virtual environment$(NC)"; \
-		echo ""; \
-		echo "$(YELLOW)Install required packages:$(NC)"; \
-		echo "  sudo apt-get update"; \
-		echo "  sudo apt-get install python3 python3-pip python3-venv python3-dev"; \
-		exit 1; \
-	}
-	@if [ ! -f "$(VENV)/bin/activate" ]; then \
-		echo "$(RED)✗ Virtual environment creation failed$(NC)"; \
-		exit 1; \
-	fi
-	@echo "$(GREEN)✓ Virtual environment created$(NC)"
 	@echo "$(YELLOW)Upgrading pip...$(NC)"
 	@$(RUN_IN_VENV) pip install --upgrade pip'
-	@echo "$(YELLOW)Installing dependencies...$(NC)"
+	@echo "$(YELLOW)Installing/updating dependencies...$(NC)"
 	@$(RUN_IN_VENV) pip install -r requirements.txt'
 	@echo "$(GREEN)✓ Backend setup complete$(NC)"
 
@@ -412,17 +413,11 @@ validate-schema: check-env
 	@echo ""
 	@echo "$(GREEN)✓ Schema validation passed!$(NC)"
 
-## test: Run all tests (LOT4 compatible)
+## test: Run all tests
 test: check-venv
 	@echo "$(BLUE)Running all tests...$(NC)"
-	@# Ensure test database exists
-	@docker exec $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d postgres -tAc \
-		"SELECT 1 FROM pg_database WHERE datname='$(POSTGRES_DB)_test'" | grep -q 1 || \
-		(echo "$(YELLOW)Creating test database...$(NC)" && \
-		docker exec $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d postgres -c "CREATE DATABASE $(POSTGRES_DB)_test;")
-	@# Initialize test schema
-	@docker exec -i $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)_test < docker/db/init.sql 2>/dev/null || true
-	@# Run tests
+	@# Tests run on the default database (m365_optimizer)
+	@# Each test creates/drops the optimizer schema for isolation
 	@$(RUN_IN_VENV) pytest tests/ -v --tb=short'
 
 ## test-unit: Run unit tests only
