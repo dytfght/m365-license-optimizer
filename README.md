@@ -310,6 +310,29 @@ POST /api/v1/tenants/{tenant_id}/sync_usage     # Synchronisation rapports d'usa
   - Rapports d'usage : Email, OneDrive, SharePoint, Teams (CSV parsing)
 
 
+## 🏢 Architecture Partner Center (Lot 5)
+
+### Stack Technique
+- **MSAL** : Client credentials flow (Partner Center API)
+- **Cache** : Redis pour pricing (TTL 24h) et tokens
+- **Import** : Streaming CSV parsing (aiofiles)
+- **Models** : `MicrosoftProduct` (Catalog) et `MicrosoftPrice` (Pricing)
+
+### Endpoints Partner Center (Lot 5)
+```
+POST /api/v1/pricing/import                 # Import CSV catalogue prix
+GET  /api/v1/pricing/products               # Recherche produits
+GET  /api/v1/pricing/products/{id}/{sku}    # Détails produit
+GET  /api/v1/pricing/prices/current         # Prix effectif actuel
+```
+
+### Services Implémentés
+- `PartnerAuthService` : Authentification MSAL spécifique Partner Center
+- `PartnerService` : Client API (Pricing, Subscriptions) avec retry logic
+- `PriceImportService` : Import asynchrone performant de fichiers CSV volumineux
+- `ProductRepository` / `PriceRepository` : Gestion optimisée des données pricing
+
+
 ## ✅ Critères d'acceptation
 
 ### Lot 1 - Infrastructure Docker (✅ COMPLET)
@@ -368,6 +391,18 @@ POST /api/v1/tenants/{tenant_id}/sync_usage     # Synchronisation rapports d'usa
 - [x] Tests unitaires créés (49 tests - 4 fichiers)
 - [x] CI/CD GitHub Actions (lint, test, build)
 - [x] Documentation OpenAPI complète (/docs, /redoc)
+
+### Lot 5 - Partner Center Integration (✅ COMPLET)
+
+- [x] Tables `microsoft_products` et `microsoft_prices` créées
+- [x] PartnerAuthService avec MSAL et cache Redis
+- [x] PartnerService pour fetch pricing et subscriptions
+- [x] PriceImportService pour import CSV performant
+- [x] Endpoints API d'import et de consultation
+- [x] Gestion des erreurs et retry logic (429, 5xx)
+- [x] Tests unitaires et d'intégration (42 tests)
+- [x] Documentation OpenAPI mise à jour
+- [x] Validation manuelle de l'import CSV (17k+ prix)
 
 ## 🐛 Dépannage
 
@@ -540,7 +575,7 @@ alembic current
 - `PriceImportService` (CSV import avec déduplication)
 - Repositories: ProductRepository, PriceRepository (upsert_bulk)
 - Endpoints API: `/api/v1/pricing/import`, `/products`, `/prices/current`
-- Tests unitaires (12) + intégration (7)
+- Tests unitaires (31) + intégration (11) = 42 tests
 - **Validation** : [LOT5-VALIDATION.md](./LOT5-VALIDATION.md)
 
 ### 🚀 Lots à venir
@@ -559,22 +594,24 @@ alembic current
 | **2** | Modèle de données PostgreSQL | ✅ Terminé | 100% |
 | **3** | Backend API FastAPI | ✅ Terminé | 100% |
 | **4** | Microsoft Graph Integration | ✅ Terminé | 100% |
-| **5** | Partner Center Integration | ⬜ À venir | 0% |
-| **6** | Jobs de synchronisation | ⬜ À venir | 0% |
-| **7** | Frontend React | ⬜ À venir | 0% |
-| **8-18** | Fonctionnalités avancées | ⬜ À venir | 0% |
+| **5** | Partner Center Integration | ✅ Terminé | 100% |
+| **6** | Optimisation CSP Pricing | ⬜ À venir | 0% |
+| **7** | Recommandations IA | ⬜ À venir | 0% |
+| **8** | Frontend React | ⬜ À venir | 0% |
+| **9-18** | Fonctionnalités avancées | ⬜ À venir | 0% |
 
 ### Lots Terminés ✅
 - **Lot 1** : Infrastructure locale Docker (PostgreSQL 15 + Redis 7 + PgAdmin)
 - **Lot 2** : Modèle de données complet avec migrations Alembic (10 tables, indexes, FK)
 - **Lot 3** : Backend API FastAPI avec JWT, middleware, tests (≥95% coverage) et CI/CD
 - **Lot 4** : Intégration Microsoft Graph avec EncryptionService, GraphAuthService, GraphService, endpoints sync, et 49 tests
+- **Lot 5** : Intégration Microsoft Partner Center avec import CSV, pricing, subscriptions et 42 tests
 
 ### Lots en Cours / À Venir 🚧
-- **Lot 5** : Intégration Microsoft Partner Center (pricing, subscriptions)
-- **Lot 6** : Jobs de synchronisation automatique
-- **Lot 7** : Frontend React
-- **Lot 8-18** : Fonctionnalités avancées (algorithmes ML, reporting, sécurité, déploiement Azure)
+- **Lot 6** : Optimisation CSP Pricing (Analyse coûts, suggestions)
+- **Lot 7** : Recommandations IA
+- **Lot 8** : Frontend React
+- **Lot 9-18** : Fonctionnalités avancées
 
 ## 🤝 Contribution
 

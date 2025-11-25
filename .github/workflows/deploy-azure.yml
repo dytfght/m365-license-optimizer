@@ -77,8 +77,8 @@ jobs:
           # Installation PostgreSQL client
           sudo apt-get update && sudo apt-get install -y postgresql-client python3-pip
           
-          # Installation Alembic
-          pip install alembic asyncpg sqlalchemy
+          # Installation Alembic et dépendances
+          pip install alembic asyncpg sqlalchemy pydantic pydantic-settings
           
           # Ajout IP Runner temporaire au firewall
           RUNNER_IP=$(curl -s https://api.ipify.org)
