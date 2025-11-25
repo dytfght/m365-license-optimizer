@@ -244,8 +244,8 @@ async def cleanup_database():
                     """
                 INSERT INTO optimizer.tenant_clients (id, tenant_id, name, country, onboarding_status)
                 VALUES
-                    (gen_random_uuid(), '12345678-1234-1234-1234-123456789012', 'Test Tenant 1', 'FR', 'active'),
-                    (gen_random_uuid(), '87654321-4321-4321-4321-210987654321', 'Test Tenant 2', 'US', 'active')
+                    (gen_random_uuid(), '12345678-1234-1234-1234-123456789012', 'Test Tenant 1', 'FR', 'active'::optimizer.onboardingstatus),
+                    (gen_random_uuid(), '87654321-4321-4321-4321-210987654321', 'Test Tenant 2', 'US', 'active'::optimizer.onboardingstatus)
                 ON CONFLICT DO NOTHING;
             """
                 )

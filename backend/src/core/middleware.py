@@ -117,9 +117,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
 
         # Content Security Policy (strict for API)
+        # Content Security Policy (allow Swagger UI)
         response.headers[
             "Content-Security-Policy"
-        ] = "default-src 'none'; frame-ancestors 'none'"
+        ] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://fastapi.tiangolo.com;"
 
         # Referrer Policy
         response.headers["Referrer-Policy"] = "no-referrer"

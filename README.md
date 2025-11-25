@@ -240,7 +240,9 @@ m365-license-optimizer/
 ├── README.md                    # Ce fichier
 ├── LOT1-VALIDATION.md           # Validation infrastructure Docker
 ├── LOT2-VALIDATION.md           # Validation modèle de données
-└── LOT3-VALIDATION.md           # Validation backend API
+├── LOT3-VALIDATION.md           # Validation backend API
+├── LOT4-VALIDATION.md           # Validation Microsoft Graph
+└── LOT5-VALIDATION.md           # Validation Partner Center
 ```
 
 ## 🛠️ Architecture Backend (Lot 3)
@@ -495,6 +497,60 @@ alembic current
 ```
 
 ## 📚 État d'avancement du projet
+
+### ✅ Lots Complétés
+
+#### ✅ Lot 1 : Infrastructure Docker & PostgreSQL
+- Configuration Docker Compose complète
+- PostgreSQL 15 avec schéma `optimizer`
+- Redis 7 avec authentification
+- PgAdmin 4 pour la gestion de la base
+- Scripts d'initialisation SQL
+- **Validation** : [LOT1-VALIDATION.md](./LOT1-VALIDATION.md)
+
+#### ✅ Lot 2 : Modèle de Données
+- Schéma complet avec 5 tables (tenants, users, licenses, usage, app registrations)
+- Migrations Alembic versionnées
+- Relations et contraintes FK
+- Données de test automatiques
+- **Validation** : [LOT2-VALIDATION.md](./LOT2-VALIDATION.md)
+
+#### ✅ Lot 3 : API Backend FastAPI
+- API REST avec FastAPI 0.104.1
+- Authentication JWT stateless
+- Repository pattern (dependency injection)
+- Middleware : RequestID, Security Headers, Transaction, AuditLog, CORS
+- Logging structuré (JSON)
+- Tests unitaires + intégration (99% coverage)
+- Build Docker multi-stage optimisé
+- **Validation** : [LOT3-VALIDATION.md](./LOT3-VALIDATION.md)
+
+#### ✅ Lot 4 : Microsoft Graph Integration
+- `GraphAuthService` (MSAL avec cache Redis)
+- `GraphService` (Users, Licenses, Usage)
+- `EncryptionService` (Fernet pour secrets)
+- Endpoints `/api/v1/graph/sync/licenses` et `/usage`
+- Tests unitaires et d'intégration
+- **Validation** : [LOT4-VALIDATION.md](./LOT4-VALIDATION.md)
+
+#### ✅ Lot 5 : Partner Center Integration
+- Modèles `microsoft_products` (1,058) et `microsoft_prices` (17,863)
+- `PartnerAuthService` (MSAL + Redis cache)
+- `PartnerService` (fetch_pricing, fetch_subscriptions)
+- `PriceImportService` (CSV import avec déduplication)
+- Repositories: ProductRepository, PriceRepository (upsert_bulk)
+- Endpoints API: `/api/v1/pricing/import`, `/products`, `/prices/current`
+- Tests unitaires (12) + intégration (7)
+- **Validation** : [LOT5-VALIDATION.md](./LOT5-VALIDATION.md)
+
+### 🚀 Lots à venir
+
+#### Lot 6 : Optimisation CSP Pricing (À venir)
+- Analyse des coûts actuels
+- Suggestions d'optimisation
+- Rapports de savings potentiels
+
+#### Lot 7 : Recommandations IA
 
 ### 📊 Vue d'ensemble
 | Lot | Description | Status | Progression |

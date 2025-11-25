@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     )
     # Application
     APP_NAME: str = "M365 License Optimizer"
-    APP_VERSION: str = "0.4.0"
-    LOT_NUMBER: int = 4
+    APP_VERSION: str = "0.5.0"
+    LOT_NUMBER: int = 5
     ENVIRONMENT: Literal["development", "test", "production"] = "development"
     LOG_LEVEL: str = "INFO"
     # Database
@@ -72,6 +72,12 @@ class Settings(BaseSettings):
     GRAPH_RETRY_BACKOFF_FACTOR: int = 2
     GRAPH_REQUEST_TIMEOUT: int = 30
 
+    # Microsoft Partner Center (LOT5)
+    PARTNER_CLIENT_ID: str
+    PARTNER_CLIENT_SECRET: str
+    PARTNER_TENANT_ID: str
+    PARTNER_AUTHORITY: str = ""
+
     @field_validator("ENCRYPTION_KEY")
     @classmethod
     def validate_encryption_key(cls, v: str) -> str:
@@ -108,6 +114,17 @@ class Settings(BaseSettings):
         if not self.AZURE_AD_AUTHORITY:
             self.AZURE_AD_AUTHORITY = (
                 f"https://login.microsoftonline.com/{self.AZURE_AD_TENANT_ID}"
+            )
+
+        # Interpolate PARTNER_AUTHORITY if it contains placeholder
+        if "${PARTNER_TENANT_ID}" in self.PARTNER_AUTHORITY:
+            self.PARTNER_AUTHORITY = self.PARTNER_AUTHORITY.replace(
+                "${PARTNER_TENANT_ID}", self.PARTNER_TENANT_ID
+            )
+        # Fallback for PARTNER_AUTHORITY if still empty
+        if not self.PARTNER_AUTHORITY:
+            self.PARTNER_AUTHORITY = (
+                f"https://login.microsoftonline.com/{self.PARTNER_TENANT_ID}"
             )
 
         # Construct REDIS_URL if not provided
