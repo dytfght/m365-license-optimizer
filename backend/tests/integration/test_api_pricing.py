@@ -18,7 +18,7 @@ class TestPricingEndpoints:
         """Test successful CSV import"""
         # Create dummy CSV content
         # Create dummy CSV content with all required columns
-        csv_content = b"ProductId,SkuId,ProductTitle,SkuTitle,Publisher,SkuDescription,UnitOfMeasure,Tags,Market,Currency,Segment,TermDuration,BillingPlan,UnitPrice,ERP Price,EffectiveStartDate,EffectiveEndDate\nCFQ7TTC0HL8Z,0001,Office 365 E3,Standard,Microsoft,Desc,User,,AX,EUR,Commercial,P1Y,P1M,10.0,12.0,2023-01-01,2024-01-01"
+        csv_content = b"ProductId,SkuId,ProductTitle,SkuTitle,Publisher,SkuDescription,UnitOfMeasure,Tags,Market,Currency,Segment,TermDuration,BillingPlan,UnitPrice,ERP Price,EffectiveStartDate,EffectiveEndDate\nCFQ7TTC0HL8Z,0001,Office 365 E3,Standard,Microsoft,Desc,User,,AX,EUR,Commercial,P1Y,Monthly,10.0,12.0,2023-01-01,2024-01-01"
         
         # Remove Content-Type from headers to allow httpx to set multipart boundary
         headers = auth_headers.copy()

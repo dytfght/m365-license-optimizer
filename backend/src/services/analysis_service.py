@@ -138,7 +138,10 @@ class AnalysisService:
             for user in users:
                 # Get user's usage data
                 usage_metrics = await self.usage_repo.get_by_user_and_period(
-                    user.id, period="D28"
+                    user_id=user.id,
+                    period="D28",
+                    start_date=cutoff_date,
+                    end_date=datetime.utcnow().date(),
                 )
 
                 # Calculate usage scores
@@ -313,6 +316,10 @@ class AnalysisService:
         Returns:
             Recommendation dict or None if no recommendation
         """
+        # If no current license, no recommendation
+        if not current_sku:
+            return None
+
         # Check if user is inactive (not enabled or very low usage)
         if not user.account_enabled:
             return {
@@ -333,10 +340,6 @@ class AnalysisService:
                 "savings_monthly": current_cost,
                 "reason": "User inactive for >90 days (no significant activity detected). Recommended to remove license.",
             }
-
-        # If no current license, no recommendation
-        if not current_sku:
-            return None
 
         # Determine required services based on usage (threshold 0.1)
         required_services = [

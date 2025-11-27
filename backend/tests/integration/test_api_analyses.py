@@ -219,7 +219,7 @@ async def test_analysis_with_inactive_users(client: AsyncClient, auth_headers: d
     user_repo = UserRepository(db_session)
     
     user = await user_repo.create(
-        graph_id=f"inactive-{uuid4()}",
+        graph_id=str(uuid4()),
         tenant_client_id=test_tenant.id,
         user_principal_name="inactive@test.com",
         account_enabled=False,

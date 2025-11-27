@@ -31,11 +31,18 @@ TEST_DATABASE_URL = settings.DATABASE_URL
 
 @pytest.fixture(scope="session")
 def event_loop():
-    """Create event loop for async tests"""
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
+    """Create an instance of the default event loop for each test session."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def override_settings():
+    """Override settings for tests."""
+    from src.core.config import settings
+    settings.APP_VERSION = "0.6.0"
+    settings.LOT_NUMBER = 6
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -122,35 +129,23 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
 
 @pytest_asyncio.fixture
-async def auth_headers(db_session):
+async def auth_headers(db_session, test_tenant):
     """
     Mock authentication headers for tests.
 
-    Creates a test user in the database and returns headers with a valid Bearer token.
+    Creates a test user linked to the test_tenant and returns headers with a valid Bearer token.
     """
     from uuid import uuid4
 
+    from src.core.security import create_access_token
     from src.core.security import get_password_hash
-    from src.models.tenant import TenantClient
     from src.models.user import User
-
-    # Create a dummy tenant first
-    tenant_id = uuid4()
-    tenant = TenantClient(
-        id=tenant_id,
-        name="Test Tenant",
-        tenant_id=str(uuid4()),  # Azure Tenant ID
-        country="US",
-        onboarding_status="active",
-    )
-    db_session.add(tenant)
-    await db_session.flush()  # Flush to get the ID if needed
 
     user_id = uuid4()
     user = User(
         id=user_id,
         graph_id=str(uuid4()),
-        tenant_client_id=tenant_id,
+        tenant_client_id=test_tenant.id,
         user_principal_name="test@example.com",
         display_name="Test User",
         password_hash=get_password_hash("test-password"),
@@ -202,6 +197,26 @@ def sample_user_data():
         "mail": "user@testcompany.com",
         "accountEnabled": True,
     }
+
+
+@pytest_asyncio.fixture
+async def test_tenant(db_session):
+    """
+    Create a test tenant for integration tests.
+    """
+    from uuid import uuid4
+    from src.models.tenant import TenantClient
+
+    tenant = TenantClient(
+        id=uuid4(),
+        name="Integration Test Tenant",
+        tenant_id=str(uuid4()),
+        country="US",
+        onboarding_status="active",
+    )
+    db_session.add(tenant)
+    await db_session.commit()
+    return tenant
 
 
 # Cleanup hook to ensure database is clean before test session
