@@ -6,8 +6,9 @@ from sqlalchemy import select
 
 from src.core.database import AsyncSessionLocal
 from src.core.security import get_password_hash
-from src.models.tenant import TenantClient
+from src.models.tenant import TenantClient, OnboardingStatus
 from src.models.user import User
+
 
 async def create_user(email: str, password: str):
     async with AsyncSessionLocal() as session:
@@ -23,11 +24,25 @@ async def create_user(email: str, password: str):
                 name="Default Tenant",
                 tenant_id=str(uuid4()),
                 country="US",
-                onboarding_status="active"
+                default_language="en",
+                onboarding_status=OnboardingStatus.ACTIVE,  # ← Utiliser l'ENUM
             )
             session.add(tenant)
             await session.commit()
-            print(f"Created tenant: {tenant.id}")
+            await session.refresh(tenant)
+            print(f"✅ Created tenant: {tenant.id}")
+        else:
+            print(f"ℹ️  Using existing tenant: {tenant.name} ({tenant.id})")
+        
+        # Check if user already exists
+        result = await session.execute(
+            select(User).where(User.user_principal_name == email)
+        )
+        existing_user = result.scalar_one_or_none()
+        
+        if existing_user:
+            print(f"⚠️  User {email} already exists!")
+            return
         
         # Create user
         user = User(
@@ -41,7 +56,8 @@ async def create_user(email: str, password: str):
         )
         session.add(user)
         await session.commit()
-        print(f"Created user: {email}")
+        print(f"✅ Created user: {email}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:

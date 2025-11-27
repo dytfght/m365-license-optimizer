@@ -10,20 +10,26 @@ if TYPE_CHECKING:
     from .analysis import Analysis
     from .user import User
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import ENUM, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin, UUIDMixin
 
 
+# ✅ CORRECTION : Utiliser str.lower() comme valeur automatique
 class OnboardingStatus(str, PyEnum):
     """Tenant onboarding status"""
-
+    
     PENDING = "pending"
     ACTIVE = "active"
     SUSPENDED = "suspended"
-    DEACTIVATED = "deactivated"
+    ERROR = "error"
+    
+    # ✅ IMPORTANT : Surcharger _generate_next_value_ pour utiliser minuscules
+    @staticmethod
+    def _generate_next_value_(name, start, count, last_values):
+        return name.lower()
 
 
 class TenantClient(Base, UUIDMixin, TimestampMixin):
@@ -51,9 +57,17 @@ class TenantClient(Base, UUIDMixin, TimestampMixin):
         String(5), default="fr", nullable=False, comment="Default language (fr or en)"
     )
 
-    # Status
+    # Status - ✅ AJOUT de values_callable pour forcer l'utilisation des valeurs
     onboarding_status: Mapped[OnboardingStatus] = mapped_column(
-        Enum(OnboardingStatus), default=OnboardingStatus.PENDING, nullable=False
+        ENUM(
+            OnboardingStatus,
+            name="onboarding_status",
+            schema="optimizer",
+            create_type=False,
+            values_callable=lambda obj: [e.value for e in obj],  # ← CRUCIAL !
+        ),
+        default=OnboardingStatus.PENDING,
+        nullable=False,
     )
 
     # Partner Center metadata (optional)
@@ -61,7 +75,7 @@ class TenantClient(Base, UUIDMixin, TimestampMixin):
         String(36), nullable=True, comment="Partner Center Customer ID"
     )
 
-    # Additional metadata - RENAMED FROM metadata TO metadatas
+    # Additional metadata
     metadatas: Mapped[Optional[dict]] = mapped_column(
         JSONB, nullable=True, comment="Additional tenant metadata"
     )
@@ -137,7 +151,15 @@ class TenantAppRegistration(Base, UUIDMixin, TimestampMixin):
 
     # Consent tracking
     consent_status: Mapped[ConsentStatus] = mapped_column(
-        Enum(ConsentStatus), default=ConsentStatus.PENDING, nullable=False
+        ENUM(
+            ConsentStatus,
+            name="consent_status",
+            schema="optimizer",
+            create_type=False,
+            values_callable=lambda obj: [e.value for e in obj],  # ← CRUCIAL !
+        ),
+        default=ConsentStatus.PENDING,
+        nullable=False,
     )
     consent_granted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
