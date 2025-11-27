@@ -1,6 +1,6 @@
 """
 FastAPI application entry point for M365 License Optimizer
-Lot 3: Backend with JWT auth, health checks, and structured logging
+Lot 6: License optimization based on usage analysis
 """
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator

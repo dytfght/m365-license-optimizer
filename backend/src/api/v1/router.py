@@ -3,7 +3,7 @@ API v1 router aggregation
 """
 from fastapi import APIRouter
 
-from .endpoints import auth, graph, pricing, tenants
+from .endpoints import analyses, auth, graph, pricing, tenants
 
 # Create v1 router
 api_router = APIRouter()
@@ -13,6 +13,7 @@ api_router.include_router(auth.router)
 api_router.include_router(tenants.router)
 api_router.include_router(graph.router)  # LOT4: Microsoft Graph sync endpoints
 api_router.include_router(pricing.router)  # LOT5: Pricing import and queries
+api_router.include_router(analyses.router)  # LOT6: License optimization analyses
 
 # Health endpoints are included at root level in main.py
 # but we can also include them here for /api/v1/health

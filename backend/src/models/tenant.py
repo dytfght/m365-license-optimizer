@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Optional
 from uuid import UUID as UUID_TYPE
 
 if TYPE_CHECKING:
+    from .analysis import Analysis
     from .user import User
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text
@@ -74,6 +75,9 @@ class TenantClient(Base, UUIDMixin, TimestampMixin):
     )
     users: Mapped[list["User"]] = relationship(
         "User", back_populates="tenant", cascade="all, delete-orphan"
+    )
+    analyses: Mapped[list["Analysis"]] = relationship(
+        "Analysis", back_populates="tenant", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

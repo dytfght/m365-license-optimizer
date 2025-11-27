@@ -333,6 +333,38 @@ GET  /api/v1/pricing/prices/current         # Prix effectif actuel
 - `ProductRepository` / `PriceRepository` : Gestion optimisée des données pricing
 
 
+## 📊 Architecture Optimisation de Licences (Lot 6)
+
+### Stack Technique
+- **Algorithmes** : Analyse d'usage sur 28 jours (Graph API data)
+- **Pricing** : Calculs économies basés sur Partner Center pricing
+- **Models** : `Analysis` (summary JSONB), `Recommendation` (savings calculation)
+- **Logique** : Détection inactifs, downgrade suggestions, ROI calculation
+
+### Endpoints Optimisation (Lot 6)
+```
+POST /api/v1/analyses/tenants/{tenant_id}/analyses    # Lancer analyse (rate limit 1/min)
+GET  /api/v1/analyses/tenants/{tenant_id}/analyses    # Lister analyses
+GET  /api/v1/analyses/analyses/{analysis_id}          # Détails avec recommendations
+POST /api/v1/analyses/recommendations/{id}/apply      # Accepter/rejeter recommendation
+```
+
+### Services Implémentés
+- `AnalysisService` : Analyse d'usage → recommandations (400+ lignes de logique)
+  - `run_analysis(tenant_id)` : Algorithme complet d'optimisation
+  - `_calculate_usage_scores()` : Calcul scores par service (Exchange, Teams, etc.)
+  - `_generate_recommendation()` : Génération recommandations avec savings
+- `RecommendationService` : Gestion cycle de vie des recommandations (apply/reject)
+- `AnalysisRepository` / `RecommendationRepository` : Accès données avec bulk insert
+
+### Algorithmes d'Optimisation
+- **Détection inactifs** : Users sans activité >90j → Remove license
+- **Downgrade E5→E3** : Pas d'usage Advanced Analytics/Power BI → Économie 30%
+- **Downgrade E3→E1** : Pas d'Office desktop → Économie 40%
+- **Downgrade E1/E3→F3** : Usage minimal (frontline workers) → Économie 50%
+- **Calcul ROI** : Savings mensuel + projection annuelle
+
+
 ## ✅ Critères d'acceptation
 
 ### Lot 1 - Infrastructure Docker (✅ COMPLET)
@@ -403,6 +435,25 @@ GET  /api/v1/pricing/prices/current         # Prix effectif actuel
 - [x] Tests unitaires et d'intégration (42 tests)
 - [x] Documentation OpenAPI mise à jour
 - [x] Validation manuelle de l'import CSV (17k+ prix)
+
+### Lot 6 - License Optimization Analysis (✅ COMPLET)
+
+- [x] Tables `analyses` et `recommendations` créées
+- [x] Migrations Alembic fonctionnelles (upgrade/downgrade)
+- [x] AnalysisRepository avec CRUD et queries optimisées  
+- [x] RecommendationRepository avec bulk insert
+- [x] AnalysisService avec algorithmes d'optimisation
+  - [x] Calcul usage scores (Exchange, OneDrive, SharePoint, Teams, Office)
+  - [x] Détection utilisateurs inactifs (>90j)
+  - [x] Recommandations downgrade (E5→E3, E3→E1, etc.)
+  - [x] Calcul savings mensuels/annuels
+- [x] RecommendationService (apply/reject)
+- [x] Endpoints API (/analyses, /recommendations)
+- [x] JWT authentication + rate limiting (1 req/min)
+- [x] Tenant isolation et authorization checks
+- [x] Tests unitaires (10) + intégration (12) = 22 tests
+- [x] Coverage ≥95% sur nouveaux modules
+- [x] Documentation et validation (LOT6-VALIDATION.md)
 
 ## 🐛 Dépannage
 
@@ -578,14 +629,17 @@ alembic current
 - Tests unitaires (31) + intégration (11) = 42 tests
 - **Validation** : [LOT5-VALIDATION.md](./LOT5-VALIDATION.md)
 
-### 🚀 Lots à venir
+#### ✅ Lot 6 : Optimisation des Licences Basée sur l'Utilisation (COMPLET)
+- Tables `analyses` et `recommendations` avec migrations Alembic
+- `AnalysisService` avec algorithmes d'optimisation intelligents
+- Détection utilisateurs inactifs (>90j sans activité)
+- Recommandations de downgrade (E5→E3, E3→E1, E1→F3)
+- Calcul économies potentielles (mensuelles/annuelles)
+- Endpoints API : POST/GET analyses, GET détails, POST apply recommendation
+- Tests unitaires (10) + intégration (12) = 22 tests
+- **Validation** : [LOT6-VALIDATION.md](./LOT6-VALIDATION.md)
 
-#### Lot 6 : Optimisation CSP Pricing (À venir)
-- Analyse des coûts actuels
-- Suggestions d'optimisation
-- Rapports de savings potentiels
-
-#### Lot 7 : Recommandations IA
+#### Lot 7 : Rapports PDF/Excel (À venir)
 
 ### 📊 Vue d'ensemble
 | Lot | Description | Status | Progression |
@@ -595,8 +649,8 @@ alembic current
 | **3** | Backend API FastAPI | ✅ Terminé | 100% |
 | **4** | Microsoft Graph Integration | ✅ Terminé | 100% |
 | **5** | Partner Center Integration | ✅ Terminé | 100% |
-| **6** | Optimisation CSP Pricing | ⬜ À venir | 0% |
-| **7** | Recommandations IA | ⬜ À venir | 0% |
+| **6** | Optimisation Licences (Usage Analysis) | ✅ Terminé | 100% |
+| **7** | Rapports PDF/Excel | ⬜ À venir | 0% |
 | **8** | Frontend React | ⬜ À venir | 0% |
 | **9-18** | Fonctionnalités avancées | ⬜ À venir | 0% |
 
@@ -606,10 +660,10 @@ alembic current
 - **Lot 3** : Backend API FastAPI avec JWT, middleware, tests (≥95% coverage) et CI/CD
 - **Lot 4** : Intégration Microsoft Graph avec EncryptionService, GraphAuthService, GraphService, endpoints sync, et 49 tests
 - **Lot 5** : Intégration Microsoft Partner Center avec import CSV, pricing, subscriptions et 42 tests
+- **Lot 6** : Optimisation licences avec analyses d'usage, recommandations, calculs savings et 22 tests
 
 ### Lots en Cours / À Venir 🚧
-- **Lot 6** : Optimisation CSP Pricing (Analyse coûts, suggestions)
-- **Lot 7** : Recommandations IA
+- **Lot 7** : Rapports PDF/Excel
 - **Lot 8** : Frontend React
 - **Lot 9-18** : Fonctionnalités avancées
 

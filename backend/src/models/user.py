@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Optional
 from uuid import UUID as UUID_TYPE
 
 if TYPE_CHECKING:
+    from .recommendation import Recommendation
     from .tenant import TenantClient
     from .usage_metrics import UsageMetrics
 
@@ -79,6 +80,9 @@ class User(Base, UUIDMixin, TimestampMixin):
     )
     usage_metrics: Mapped[list["UsageMetrics"]] = relationship(
         "UsageMetrics", back_populates="user", cascade="all, delete-orphan"
+    )
+    recommendations: Mapped[list["Recommendation"]] = relationship(
+        "Recommendation", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
