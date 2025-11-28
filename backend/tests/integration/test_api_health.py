@@ -49,9 +49,9 @@ class TestHealthEndpoints:
         assert "lot" in data
         assert "environment" in data
 
-        # Check Lot 6 values
-        assert data["version"] == "0.6.0"
-        assert data["lot"] == 6
+        # Check Lot 7 values
+        assert data["version"] == "0.7.0"
+        assert data["lot"] == 7
         assert data["name"] == "M365 License Optimizer"
 
     @pytest.mark.asyncio
@@ -68,6 +68,6 @@ class TestHealthEndpoints:
         assert "health" in data
         assert "api_base" in data
 
-        assert data["version"] == "0.6.0"
-        assert data["lot"] == 6
+        assert data["version"] == "0.7.0"
+        assert data["lot"] == 7
         assert data["api_base"] == "/api/v1"

@@ -9,6 +9,7 @@ from uuid import UUID as UUID_TYPE
 
 if TYPE_CHECKING:
     from .recommendation import Recommendation
+    from .report import Report
     from .tenant import TenantClient
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Text
@@ -77,6 +78,12 @@ class Analysis(Base, UUIDMixin, TimestampMixin):
     )
     recommendations: Mapped[list["Recommendation"]] = relationship(
         "Recommendation",
+        back_populates="analysis",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+    reports: Mapped[list["Report"]] = relationship(
+        "Report",
         back_populates="analysis",
         cascade="all, delete-orphan",
         lazy="select",

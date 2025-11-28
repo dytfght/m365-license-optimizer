@@ -53,4 +53,12 @@ cryptography==42.0.2
 # Type Stubs (Development)
 types-python-jose>=3.3.0
 types-passlib>=1.7.7
-types-requests>=2.31.0 
+types-requests>=2.31.0
+
+# Report Generation (LOT7)
+reportlab==4.0.7
+openpyxl==3.1.2
+matplotlib==3.8.2
+Pillow==10.1.0
+pandas==2.1.4
+seaborn==0.12.2 

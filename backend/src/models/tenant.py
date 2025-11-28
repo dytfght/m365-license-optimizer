@@ -93,6 +93,9 @@ class TenantClient(Base, UUIDMixin, TimestampMixin):
     analyses: Mapped[list["Analysis"]] = relationship(
         "Analysis", back_populates="tenant", cascade="all, delete-orphan"
     )
+    reports: Mapped[list["Report"]] = relationship(
+        "Report", back_populates="tenant", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<TenantClient(id={self.id}, name='{self.name}', status={self.onboarding_status})>"

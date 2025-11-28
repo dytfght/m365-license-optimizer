@@ -97,6 +97,7 @@ m365-license-optimizer/
 | **4** | Microsoft Graph Integration | ✅ Terminé |
 | **5** | Partner Center Integration | ✅ Terminé |
 | **6** | Optimisation des licences | ✅ Terminé |
+| **7** | Génération de rapports PDF/Excel | ✅ Terminé |
 
 ### 🎯 Fonctionnalités principales
 
@@ -126,6 +127,18 @@ POST /api/v1/analyses/tenants/{id}/analyses    # Lancer analyse
 GET  /api/v1/analyses/tenants/{id}/analyses    # Liste analyses
 GET  /api/v1/analyses/analyses/{id}           # Détails + recommandations
 POST /api/v1/analyses/recommendations/{id}/apply # Appliquer recommandation
+```
+
+#### Report Generation (Lot 7)
+```
+POST /api/v1/reports/analyses/{id}/pdf         # Générer rapport PDF
+POST /api/v1/reports/analyses/{id}/excel       # Générer rapport Excel
+GET  /api/v1/reports/analyses/{id}             # Liste rapports d'une analyse
+GET  /api/v1/reports/tenants/{id}              # Liste rapports d'un tenant
+GET  /api/v1/reports/{id}                      # Détails d'un rapport
+GET  /api/v1/reports/{id}/download             # URL de téléchargement
+DELETE /api/v1/reports/{id}                    # Supprimer un rapport
+POST /api/v1/reports/cleanup                   # Nettoyer rapports expirés
 ```
 
 ## 🧪 Tests
@@ -173,6 +186,7 @@ Les validations détaillées par lot sont disponibles dans les fichiers :
 - [LOT4-VALIDATION.md](./LOT4-VALIDATION.md) - Microsoft Graph
 - [LOT5-VALIDATION.md](./LOT5-VALIDATION.md) - Partner Center
 - [LOT6-VALIDATION.md](./LOT6-VALIDATION.md) - License Optimization
+- [LOT7-VALIDATION-FINAL.md](./LOT7-VALIDATION-FINAL.md) - Report Generation
 
 ## 🤝 Contribution
 

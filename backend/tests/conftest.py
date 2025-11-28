@@ -42,8 +42,8 @@ def override_settings():
     """Override settings for tests."""
     from src.core.config import settings
 
-    settings.APP_VERSION = "0.6.0"
-    settings.LOT_NUMBER = 6
+    settings.APP_VERSION = "0.7.0"
+    settings.LOT_NUMBER = 7
 
 
 @pytest_asyncio.fixture(scope="function")

@@ -6,6 +6,7 @@ from .base import Base
 from .microsoft_price import MicrosoftPrice
 from .microsoft_product import MicrosoftProduct
 from .recommendation import Recommendation, RecommendationStatus
+from .report import Report
 from .tenant import TenantAppRegistration, TenantClient
 from .usage_metrics import UsageMetrics
 from .user import AssignmentSource, LicenseAssignment, LicenseStatus, User
@@ -25,4 +26,5 @@ __all__ = [
     "AnalysisStatus",
     "Recommendation",
     "RecommendationStatus",
+    "Report",
 ]
