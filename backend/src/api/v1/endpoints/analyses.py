@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ....core.database import get_db
 from ....models.user import User
 from ....schemas.analysis import (
-    AnalysisCreate,
     AnalysisDetailResponse,
     AnalysisList,
     AnalysisResponse,
@@ -269,12 +268,12 @@ async def apply_recommendation(
     try:
         if request.action == "accept":
             recommendation = await recommendation_service.apply_recommendation(
-                rec_id, current_user.id
+                rec_id, UUID(str(current_user.id))
             )
             message = "Recommendation accepted successfully"
         elif request.action == "reject":
             recommendation = await recommendation_service.reject_recommendation(
-                rec_id, current_user.id
+                rec_id, UUID(str(current_user.id))
             )
             message = "Recommendation rejected successfully"
         else:

@@ -10,14 +10,13 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.analysis import Analysis, AnalysisStatus
-from ..models.microsoft_price import MicrosoftPrice
-from ..models.user import LicenseAssignment, User
 from ..models.usage_metrics import UsageMetrics
+from ..models.user import User
 from ..repositories.analysis_repository import AnalysisRepository
 from ..repositories.product_repository import ProductRepository
 from ..repositories.recommendation_repository import RecommendationRepository
-from ..repositories.user_repository import UserRepository
 from ..repositories.usage_metrics_repository import UsageMetricsRepository
+from ..repositories.user_repository import UserRepository
 
 logger = structlog.get_logger(__name__)
 
@@ -26,32 +25,48 @@ logger = structlog.get_logger(__name__)
 SKU_TO_SERVICES = {
     # Microsoft 365 E5
     "06ebc4ee-1bb5-47dd-8120-11324bc54e06": [
-        "Exchange", "OneDrive", "SharePoint", "Teams", "Office", "Advanced"
+        "Exchange",
+        "OneDrive",
+        "SharePoint",
+        "Teams",
+        "Office",
+        "Advanced",
     ],
     # Microsoft 365 E3
     "05e9a617-0261-4cee-bb44-138d3ef5d965": [
-        "Exchange", "OneDrive", "SharePoint", "Teams", "Office"
+        "Exchange",
+        "OneDrive",
+        "SharePoint",
+        "Teams",
+        "Office",
     ],
     # Microsoft 365 E1
     "18181a46-0d4e-45cd-891e-60aabd171b4e": [
-        "Exchange", "OneDrive", "SharePoint", "Teams"
+        "Exchange",
+        "OneDrive",
+        "SharePoint",
+        "Teams",
     ],
     # Microsoft 365 F3
-    "66b55226-6b4f-492c-910c-a3b7a3c9d993": [
-        "Exchange", "OneDrive", "Teams"
-    ],
+    "66b55226-6b4f-492c-910c-a3b7a3c9d993": ["Exchange", "OneDrive", "Teams"],
     # Office 365 E5
     "c7df2760-2c81-4ef7-b578-5b5392b571df": [
-        "Exchange", "OneDrive", "SharePoint", "Teams", "Office", "Advanced"
+        "Exchange",
+        "OneDrive",
+        "SharePoint",
+        "Teams",
+        "Office",
+        "Advanced",
     ],
     # Office 365 E3
     "6fd2c87f-b296-42f0-b197-1e91e994b900": [
-        "Exchange", "OneDrive", "SharePoint", "Teams", "Office"
+        "Exchange",
+        "OneDrive",
+        "SharePoint",
+        "Teams",
+        "Office",
     ],
-    # Office 365 E1
-    "18181a46-0d4e-45cd-891e-60aabd171b4e": [
-        "Exchange", "OneDrive", "SharePoint", "Teams"
-    ],
+
     # Exchange Online Plan 1
     "4b9405b0-7788-4568-add1-99614e613b69": ["Exchange"],
     # Exchange Online Plan 2
@@ -104,7 +119,7 @@ class AnalysisService:
 
             # Fetch all data
             users = await self.user_repo.get_by_tenant(tenant_id, limit=10000)
-            
+
             if not users:
                 # No users to analyze
                 summary = {
@@ -122,7 +137,7 @@ class AnalysisService:
                     },
                 }
                 await self.analysis_repo.update_status(
-                    analysis.id, AnalysisStatus.COMPLETED, summary=summary
+                    UUID(str(analysis.id)), AnalysisStatus.COMPLETED, summary=summary
                 )
                 return analysis
 
@@ -138,7 +153,7 @@ class AnalysisService:
             for user in users:
                 # Get user's usage data
                 usage_metrics = await self.usage_repo.get_by_user_and_period(
-                    user_id=user.id,
+                    user_id=UUID(str(user.id)),
                     period="D28",
                     start_date=cutoff_date,
                     end_date=datetime.utcnow().date(),
@@ -176,7 +191,9 @@ class AnalysisService:
                             "reason": recommendation["reason"],
                         }
                     )
-                    total_optimized_cost += current_cost - recommendation["savings_monthly"]
+                    total_optimized_cost += (
+                        current_cost - recommendation["savings_monthly"]
+                    )
 
                     # Update breakdown
                     if recommendation["type"] == "remove":
@@ -212,7 +229,7 @@ class AnalysisService:
 
             # Update analysis status to completed
             await self.analysis_repo.update_status(
-                analysis.id, AnalysisStatus.COMPLETED, summary=summary
+                UUID(str(analysis.id)), AnalysisStatus.COMPLETED, summary=summary
             )
 
             await self.session.commit()
@@ -233,7 +250,7 @@ class AnalysisService:
             )
             # Mark analysis as failed
             await self.analysis_repo.update_status(
-                analysis.id,
+                UUID(str(analysis.id)),
                 AnalysisStatus.FAILED,
                 error_message=str(e),
             )
@@ -291,8 +308,10 @@ class AnalysisService:
         # Office score (based on web/desktop activation)
         office_activity = latest_metrics.office_web_activity or {}
         office_count = office_activity.get("viewed_or_edited_file_count", 0)
-        scores["Office"] = min(1.0, office_count / 30.0) if office_count > 0 else (
-            1.0 if latest_metrics.office_desktop_activated else 0.0
+        scores["Office"] = (
+            min(1.0, office_count / 30.0)
+            if office_count > 0
+            else (1.0 if latest_metrics.office_desktop_activated else 0.0)
         )
 
         return scores
@@ -358,10 +377,13 @@ class AnalysisService:
 
         # Find optimal SKU
         current_sku_name = SKU_NAMES.get(current_sku, f"SKU {current_sku}")
-        
+
         # Check for downgrade opportunities
         # E5 → E3 if no Advanced services used
-        if "Advanced" in SKU_TO_SERVICES.get(current_sku, []) and "Advanced" not in required_services:
+        if (
+            "Advanced" in SKU_TO_SERVICES.get(current_sku, [])
+            and "Advanced" not in required_services
+        ):
             # Recommend E3
             e3_sku = "05e9a617-0261-4cee-bb44-138d3ef5d965"
             savings = current_cost * Decimal("0.3")  # Assume 30% savings
@@ -374,7 +396,10 @@ class AnalysisService:
             }
 
         # E3 → E1 if only basic services used (Exchange, OneDrive, SharePoint, Teams)
-        if current_sku in ["05e9a617-0261-4cee-bb44-138d3ef5d965", "6fd2c87f-b296-42f0-b197-1e91e994b900"]:
+        if current_sku in [
+            "05e9a617-0261-4cee-bb44-138d3ef5d965",
+            "6fd2c87f-b296-42f0-b197-1e91e994b900",
+        ]:
             if "Office" not in required_services:
                 e1_sku = "18181a46-0d4e-45cd-891e-60aabd171b4e"
                 savings = current_cost * Decimal("0.4")  # Assume 40% savings
@@ -387,8 +412,14 @@ class AnalysisService:
                 }
 
         # E1/E3 → F3 if only Exchange, OneDrive, Teams (no SharePoint)
-        if current_sku in ["18181a46-0d4e-45cd-891e-60aabd171b4e", "05e9a617-0261-4cee-bb44-138d3ef5d965"]:
-            if "SharePoint" not in required_services and "Office" not in required_services:
+        if current_sku in [
+            "18181a46-0d4e-45cd-891e-60aabd171b4e",
+            "05e9a617-0261-4cee-bb44-138d3ef5d965",
+        ]:
+            if (
+                "SharePoint" not in required_services
+                and "Office" not in required_services
+            ):
                 f3_sku = "66b55226-6b4f-492c-910c-a3b7a3c9d993"
                 savings = current_cost * Decimal("0.5")  # Assume 50% savings
                 return {

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from .recommendation import Recommendation
     from .tenant import TenantClient
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,9 +21,9 @@ from .base import Base, TimestampMixin, UUIDMixin
 class AnalysisStatus(str, PyEnum):
     """Status of an analysis run"""
 
-    PENDING = "pending"
-    COMPLETED = "completed"
-    FAILED = "failed"
+    PENDING = "PENDING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
 
 
 class Analysis(Base, UUIDMixin, TimestampMixin):

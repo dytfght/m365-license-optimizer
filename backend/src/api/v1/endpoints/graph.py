@@ -4,10 +4,12 @@ Microsoft Graph API endpoints for syncing users, licenses, and usage data
 import time
 from datetime import datetime
 from uuid import UUID
+from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....core.middleware import limiter
 from ....models.tenant import TenantClient
@@ -21,17 +23,40 @@ from ....schemas.graph import (
     SyncUsersResponse,
 )
 from ...dependencies import (
-    CurrentUser,
     DBSession,
     GraphServiceDep,
     LicenseRepositoryDep,
     UsageMetricsRepositoryDep,
     UserRepositoryDep,
 )
+from ...deps import get_current_user
+from ....repositories.tenant_repository import TenantRepository
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/tenants", tags=["graph"])
+
+
+async def get_tenant_with_app_reg(db: AsyncSession, tenant_id: str) -> TenantClient:
+    """Get tenant with app registration or raise 404"""
+    tenant_repo = TenantRepository(db)
+    tenant = await tenant_repo.get_with_app_registration(UUID(tenant_id))
+    
+    if not tenant:
+        logger.warning("tenant_not_found", tenant_id=tenant_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tenant {tenant_id} not found",
+        )
+    
+    if not tenant.app_registration:
+        logger.warning("app_registration_not_found", tenant_id=tenant_id)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Tenant {tenant_id} has no app registration configured",
+        )
+    
+    return tenant
 
 
 @router.post(
@@ -46,7 +71,7 @@ async def sync_users(
     request: Request,
     tenant_id: str,
     body: SyncUsersRequest,
-    current_user: CurrentUser,
+    current_user: Annotated[dict, Depends(get_current_user)],
     db: DBSession,
     graph_service: GraphServiceDep,
     user_repo: UserRepositoryDep,
@@ -68,17 +93,8 @@ async def sync_users(
         "sync_users_started", tenant_id=tenant_id, user_id=current_user["user_id"]
     )
 
-    # Verify tenant exists
-    stmt = select(TenantClient).where(TenantClient.tenant_id == tenant_id)
-    result = await db.execute(stmt)
-    tenant = result.scalar_one_or_none()
-
-    if not tenant:
-        logger.warning("tenant_not_found", tenant_id=tenant_id)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Tenant {tenant_id} not found",
-        )
+    # Verify tenant exists with app registration
+    tenant = await get_tenant_with_app_reg(db, tenant_id)
 
     try:
         # Fetch users from Microsoft Graph
@@ -165,7 +181,7 @@ async def sync_licenses(
     request: Request,
     tenant_id: str,
     body: SyncLicensesRequest,
-    current_user: CurrentUser,
+    current_user: Annotated[dict, Depends(get_current_user)],
     db: DBSession,
     graph_service: GraphServiceDep,
     user_repo: UserRepositoryDep,
@@ -187,16 +203,8 @@ async def sync_licenses(
         "sync_licenses_started", tenant_id=tenant_id, user_id=current_user["user_id"]
     )
 
-    # Verify tenant exists
-    stmt = select(TenantClient).where(TenantClient.tenant_id == tenant_id)
-    result = await db.execute(stmt)
-    tenant = result.scalar_one_or_none()
-
-    if not tenant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Tenant {tenant_id} not found",
-        )
+    # Verify tenant exists with app registration
+    tenant = await get_tenant_with_app_reg(db, tenant_id)
 
     try:
         # Fetch subscribed SKUs
@@ -288,7 +296,7 @@ async def sync_usage(
     request: Request,
     tenant_id: str,
     body: SyncUsageRequest,
-    current_user: CurrentUser,
+    current_user: Annotated[dict, Depends(get_current_user)],
     db: DBSession,
     graph_service: GraphServiceDep,
     user_repo: UserRepositoryDep,
@@ -315,16 +323,8 @@ async def sync_usage(
         user_id=current_user["user_id"],
     )
 
-    # Verify tenant exists
-    stmt = select(TenantClient).where(TenantClient.tenant_id == tenant_id)
-    result = await db.execute(stmt)
-    tenant = result.scalar_one_or_none()
-
-    if not tenant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Tenant {tenant_id} not found",
-        )
+    # Verify tenant exists with app registration
+    tenant = await get_tenant_with_app_reg(db, tenant_id)
 
     try:
         reports_fetched = []

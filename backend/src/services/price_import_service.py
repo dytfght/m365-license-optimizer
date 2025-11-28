@@ -130,7 +130,7 @@ class PriceImportService:
             currency=row["Currency"],
             segment=row["Segment"],
             term_duration=row["TermDuration"],
-            billing_plan=row["BillingPlan"],
+            billing_plan=self._parse_billing_plan(row["BillingPlan"]),
             unit_price=Decimal(row["UnitPrice"]),
             erp_price=Decimal(row["ERP Price"]),
             effective_start_date=self._parse_datetime(row["EffectiveStartDate"]),
@@ -145,6 +145,30 @@ class PriceImportService:
         """Parse ISO 8601 datetime string"""
         # Format: 2024-05-01T00:00:00.0000000Z
         return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+
+    @staticmethod
+    def _parse_billing_plan(billing_plan: str) -> str:
+        """Parse and validate billing plan value"""
+        # Handle None or empty values
+        if not billing_plan or billing_plan.strip() == "":
+            return "Annual"  # Default to Annual
+        
+        # Handle "None" string from CSV
+        if billing_plan.strip() == "None":
+            return "Annual"  # Default to Annual
+        
+        # Validate against allowed values
+        billing_plan_clean = billing_plan.strip()
+        if billing_plan_clean not in ["Annual", "Monthly"]:
+            # Log warning and default to Annual
+            logger.warning(
+                "invalid_billing_plan_value",
+                value=billing_plan_clean,
+                default="Annual"
+            )
+            return "Annual"
+        
+        return billing_plan_clean
 
     @staticmethod
     def _parse_int(value: str | None) -> int | None:

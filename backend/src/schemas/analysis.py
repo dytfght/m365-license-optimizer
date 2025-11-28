@@ -12,7 +12,9 @@ class AnalysisBase(BaseModel):
     """Base analysis schema with common fields"""
 
     tenant_client_id: UUID = Field(..., description="Tenant UUID")
-    analysis_date: datetime = Field(..., description="Date and time when analysis was run")
+    analysis_date: datetime = Field(
+        ..., description="Date and time when analysis was run"
+    )
 
 
 class AnalysisCreate(BaseModel):
@@ -27,9 +29,13 @@ class AnalysisSummary(BaseModel):
     total_users: int = Field(..., description="Total number of users analyzed")
     total_current_cost: float = Field(..., description="Current monthly cost")
     total_optimized_cost: float = Field(..., description="Optimized monthly cost")
-    potential_savings_monthly: float = Field(..., description="Potential monthly savings")
+    potential_savings_monthly: float = Field(
+        ..., description="Potential monthly savings"
+    )
     potential_savings_annual: float = Field(..., description="Potential annual savings")
-    recommendations_count: int = Field(..., description="Number of recommendations generated")
+    recommendations_count: int = Field(
+        ..., description="Number of recommendations generated"
+    )
     breakdown: dict[str, int] = Field(
         ...,
         description="Breakdown by recommendation type (remove, downgrade, upgrade, no_change)",
@@ -41,7 +47,9 @@ class AnalysisResponse(AnalysisBase):
 
     id: UUID = Field(..., description="Analysis UUID")
     status: str = Field(..., description="Analysis status (pending/completed/failed)")
-    summary: dict[str, Any] = Field(..., description="Analysis summary with costs and savings")
+    summary: dict[str, Any] = Field(
+        ..., description="Analysis summary with costs and savings"
+    )
     error_message: str | None = Field(None, description="Error message if failed")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime | None = Field(None, description="Last update timestamp")

@@ -60,7 +60,7 @@ class TestPartnerService:
             mock_resp = AsyncMock()
             mock_resp.status = 200
             mock_resp.json = AsyncMock(return_value=mock_response)
-            
+
             # session.get() returns a context manager, not a coroutine
             mock_get = MagicMock()
             mock_session.return_value.__aenter__.return_value.get = mock_get
@@ -93,7 +93,7 @@ class TestPartnerService:
         with patch("aiohttp.ClientSession") as mock_session:
             mock_resp = AsyncMock()
             mock_resp.status = 401
-            
+
             mock_get = MagicMock()
             mock_session.return_value.__aenter__.return_value.get = mock_get
             mock_get.return_value.__aenter__.return_value = mock_resp
@@ -110,7 +110,7 @@ class TestPartnerService:
             mock_resp = AsyncMock()
             mock_resp.status = 429
             mock_resp.headers = {"Retry-After": "60"}
-            
+
             mock_get = MagicMock()
             mock_session.return_value.__aenter__.return_value.get = mock_get
             mock_get.return_value.__aenter__.return_value = mock_resp
@@ -134,7 +134,7 @@ class TestPartnerService:
             mock_resp = AsyncMock()
             mock_resp.status = 200
             mock_resp.json = AsyncMock(return_value=mock_response)
-            
+
             mock_get = MagicMock()
             mock_session.return_value.__aenter__.return_value.get = mock_get
             mock_get.return_value.__aenter__.return_value = mock_resp

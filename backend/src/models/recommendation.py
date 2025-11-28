@@ -21,9 +21,9 @@ from .base import Base, TimestampMixin, UUIDMixin
 class RecommendationStatus(str, PyEnum):
     """Status of a recommendation"""
 
-    PENDING = "pending"
-    ACCEPTED = "accepted"
-    REJECTED = "rejected"
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
 
 
 class Recommendation(Base, UUIDMixin, TimestampMixin):
@@ -84,7 +84,9 @@ class Recommendation(Base, UUIDMixin, TimestampMixin):
     )
 
     # Relationships
-    analysis: Mapped["Analysis"] = relationship("Analysis", back_populates="recommendations")
+    analysis: Mapped["Analysis"] = relationship(
+        "Analysis", back_populates="recommendations"
+    )
     user: Mapped["User"] = relationship("User", back_populates="recommendations")
 
     def __repr__(self) -> str:

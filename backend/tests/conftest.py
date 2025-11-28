@@ -41,6 +41,7 @@ def event_loop():
 def override_settings():
     """Override settings for tests."""
     from src.core.config import settings
+
     settings.APP_VERSION = "0.6.0"
     settings.LOT_NUMBER = 6
 
@@ -66,6 +67,36 @@ async def db_engine():
         # Drop schema cascade to handle orphaned tables from previous tests
         await conn.execute(text("DROP SCHEMA IF EXISTS optimizer CASCADE"))
         await conn.execute(text("CREATE SCHEMA optimizer"))
+
+        # Create PostgreSQL enum types manually BEFORE creating tables
+        await conn.execute(
+            text(
+                """
+            CREATE TYPE optimizer.onboarding_status AS ENUM ('pending', 'active', 'suspended', 'error');
+        """
+            )
+        )
+        await conn.execute(
+            text(
+                """
+            CREATE TYPE optimizer.consent_status AS ENUM ('pending', 'granted', 'expired', 'revoked');
+        """
+            )
+        )
+        await conn.execute(
+            text(
+                """
+            CREATE TYPE optimizer.analysis_status AS ENUM ('PENDING', 'COMPLETED', 'FAILED');
+        """
+            )
+        )
+        await conn.execute(
+            text(
+                """
+            CREATE TYPE optimizer.recommendation_status AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED');
+        """
+            )
+        )
 
         # Create all tables defined in models
         await conn.run_sync(Base.metadata.create_all)
@@ -137,8 +168,7 @@ async def auth_headers(db_session, test_tenant):
     """
     from uuid import uuid4
 
-    from src.core.security import create_access_token
-    from src.core.security import get_password_hash
+    from src.core.security import create_access_token, get_password_hash
     from src.models.user import User
 
     user_id = uuid4()
@@ -205,6 +235,7 @@ async def test_tenant(db_session):
     Create a test tenant for integration tests.
     """
     from uuid import uuid4
+
     from src.models.tenant import TenantClient
 
     tenant = TenantClient(

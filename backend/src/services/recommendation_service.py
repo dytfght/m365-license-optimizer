@@ -19,9 +19,7 @@ class RecommendationService:
         self.session = session
         self.recommendation_repo = RecommendationRepository(session)
 
-    async def apply_recommendation(
-        self, rec_id: UUID, user_id: UUID
-    ) -> Recommendation:
+    async def apply_recommendation(self, rec_id: UUID, user_id: UUID) -> Recommendation:
         """
         Mark a recommendation as accepted.
 
@@ -104,7 +102,9 @@ class RecommendationService:
         Returns:
             List of Recommendation entities
         """
-        return await self.recommendation_repo.get_by_analysis(analysis_id, limit, offset)
+        return await self.recommendation_repo.get_by_analysis(
+            analysis_id, limit, offset
+        )
 
     async def get_pending_recommendations(
         self, analysis_id: UUID

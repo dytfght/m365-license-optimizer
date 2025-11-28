@@ -1,14 +1,14 @@
 """
 Unit tests for AnalysisService
 """
-import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
 
-from src.models.analysis import Analysis, AnalysisStatus
-from src.models.user import User
+import pytest
+
 from src.models.usage_metrics import UsageMetrics
+from src.models.user import User
 from src.services.analysis_service import AnalysisService
 
 
@@ -16,9 +16,9 @@ from src.services.analysis_service import AnalysisService
 async def test_calculate_usage_scores_empty(db_session):
     """Test usage score calculation with empty metrics"""
     service = AnalysisService(db_session)
-    
+
     scores = service._calculate_usage_scores([])
-    
+
     assert scores["Exchange"] == 0.0
     assert scores["OneDrive"] == 0.0
     assert scores["SharePoint"] == 0.0
@@ -30,7 +30,7 @@ async def test_calculate_usage_scores_empty(db_session):
 async def test_calculate_usage_scores_with_activity(db_session):
     """Test usage score calculation with activity data"""
     service = AnalysisService(db_session)
-    
+
     # Create mock usage metrics
     metrics = [
         UsageMetrics(
@@ -48,9 +48,9 @@ async def test_calculate_usage_scores_with_activity(db_session):
             mailbox_size_bytes=1024 * 1024,
         )
     ]
-    
+
     scores = service._calculate_usage_scores(metrics)
-    
+
     assert scores["Exchange"] == 1.0  # 100 emails / 100
     assert scores["OneDrive"] == 0.5  # 25 files / 50
     assert scores["SharePoint"] == 0.5  # 25 files / 50
@@ -62,7 +62,7 @@ async def test_calculate_usage_scores_with_activity(db_session):
 async def test_generate_recommendation_inactive_user(db_session):
     """Test recommendation for inactive user"""
     service = AnalysisService(db_session)
-    
+
     user = User(
         id=uuid4(),
         graph_id="test-user",
@@ -70,7 +70,7 @@ async def test_generate_recommendation_inactive_user(db_session):
         user_principal_name="inactive@test.com",
         account_enabled=False,
     )
-    
+
     usage_scores = {
         "Exchange": 0.0,
         "OneDrive": 0.0,
@@ -78,14 +78,14 @@ async def test_generate_recommendation_inactive_user(db_session):
         "Teams": 0.0,
         "Office": 0.0,
     }
-    
+
     current_sku = "06ebc4ee-1bb5-47dd-8120-11324bc54e06"  # E5
     current_cost = Decimal("10.00")
-    
+
     recommendation = await service._generate_recommendation(
         user, usage_scores, current_sku, current_cost
     )
-    
+
     assert recommendation is not None
     assert recommendation["type"] == "remove"
     assert recommendation["recommended_sku"] is None
@@ -97,7 +97,7 @@ async def test_generate_recommendation_inactive_user(db_session):
 async def test_generate_recommendation_low_usage(db_session):
     """Test recommendation for user with very low usage"""
     service = AnalysisService(db_session)
-    
+
     user = User(
         id=uuid4(),
         graph_id="test-user",
@@ -105,7 +105,7 @@ async def test_generate_recommendation_low_usage(db_session):
         user_principal_name="lowusage@test.com",
         account_enabled=True,
     )
-    
+
     # Very low usage across all services
     usage_scores = {
         "Exchange": 0.02,
@@ -114,14 +114,14 @@ async def test_generate_recommendation_low_usage(db_session):
         "Teams": 0.01,
         "Office": 0.0,
     }
-    
+
     current_sku = "05e9a617-0261-4cee-bb44-138d3ef5d965"  # E3
     current_cost = Decimal("10.00")
-    
+
     recommendation = await service._generate_recommendation(
         user, usage_scores, current_sku, current_cost
     )
-    
+
     assert recommendation is not None
     assert recommendation["type"] == "remove"
     assert "inactive" in recommendation["reason"].lower()
@@ -131,7 +131,7 @@ async def test_generate_recommendation_low_usage(db_session):
 async def test_generate_recommendation_downgrade_e5_to_e3(db_session):
     """Test recommendation to downgrade from E5 to E3"""
     service = AnalysisService(db_session)
-    
+
     user = User(
         id=uuid4(),
         graph_id="test-user",
@@ -139,7 +139,7 @@ async def test_generate_recommendation_downgrade_e5_to_e3(db_session):
         user_principal_name="user@test.com",
         account_enabled=True,
     )
-    
+
     # Good usage but no advanced features
     usage_scores = {
         "Exchange": 0.8,
@@ -148,17 +148,19 @@ async def test_generate_recommendation_downgrade_e5_to_e3(db_session):
         "Teams": 0.7,
         "Office": 0.6,
     }
-    
+
     current_sku = "06ebc4ee-1bb5-47dd-8120-11324bc54e06"  # E5
     current_cost = Decimal("20.00")
-    
+
     recommendation = await service._generate_recommendation(
         user, usage_scores, current_sku, current_cost
     )
-    
+
     assert recommendation is not None
     assert recommendation["type"] == "downgrade"
-    assert recommendation["recommended_sku"] == "05e9a617-0261-4cee-bb44-138d3ef5d965"  # E3
+    assert (
+        recommendation["recommended_sku"] == "05e9a617-0261-4cee-bb44-138d3ef5d965"
+    )  # E3
     assert recommendation["savings_monthly"] > 0
     assert "advanced" in recommendation["reason"].lower()
 
@@ -167,7 +169,7 @@ async def test_generate_recommendation_downgrade_e5_to_e3(db_session):
 async def test_generate_recommendation_downgrade_e3_to_e1(db_session):
     """Test recommendation to downgrade from E3 to E1"""
     service = AnalysisService(db_session)
-    
+
     user = User(
         id=uuid4(),
         graph_id="test-user",
@@ -175,7 +177,7 @@ async def test_generate_recommendation_downgrade_e3_to_e1(db_session):
         user_principal_name="user@test.com",
         account_enabled=True,
     )
-    
+
     # Good usage but no Office desktop
     usage_scores = {
         "Exchange": 0.8,
@@ -184,17 +186,19 @@ async def test_generate_recommendation_downgrade_e3_to_e1(db_session):
         "Teams": 0.7,
         "Office": 0.0,  # No Office usage
     }
-    
+
     current_sku = "05e9a617-0261-4cee-bb44-138d3ef5d965"  # E3
     current_cost = Decimal("15.00")
-    
+
     recommendation = await service._generate_recommendation(
         user, usage_scores, current_sku, current_cost
     )
-    
+
     assert recommendation is not None
     assert recommendation["type"] == "downgrade"
-    assert recommendation["recommended_sku"] == "18181a46-0d4e-45cd-891e-60aabd171b4e"  # E1
+    assert (
+        recommendation["recommended_sku"] == "18181a46-0d4e-45cd-891e-60aabd171b4e"
+    )  # E1
     assert recommendation["savings_monthly"] > 0
     assert "office" in recommendation["reason"].lower()
 
@@ -203,7 +207,7 @@ async def test_generate_recommendation_downgrade_e3_to_e1(db_session):
 async def test_generate_recommendation_no_change(db_session):
     """Test no recommendation when usage matches SKU"""
     service = AnalysisService(db_session)
-    
+
     user = User(
         id=uuid4(),
         graph_id="test-user",
@@ -211,7 +215,7 @@ async def test_generate_recommendation_no_change(db_session):
         user_principal_name="user@test.com",
         account_enabled=True,
     )
-    
+
     # Good usage matching E1
     usage_scores = {
         "Exchange": 0.8,
@@ -220,14 +224,14 @@ async def test_generate_recommendation_no_change(db_session):
         "Teams": 0.7,
         "Office": 0.0,
     }
-    
+
     current_sku = "18181a46-0d4e-45cd-891e-60aabd171b4e"  # E1
     current_cost = Decimal("8.00")
-    
+
     recommendation = await service._generate_recommendation(
         user, usage_scores, current_sku, current_cost
     )
-    
+
     # No recommendation (usage matches SKU)
     assert recommendation is None
 
@@ -236,7 +240,7 @@ async def test_generate_recommendation_no_change(db_session):
 async def test_generate_recommendation_no_license(db_session):
     """Test no recommendation when user has no license"""
     service = AnalysisService(db_session)
-    
+
     user = User(
         id=uuid4(),
         graph_id="test-user",
@@ -244,7 +248,7 @@ async def test_generate_recommendation_no_license(db_session):
         user_principal_name="user@test.com",
         account_enabled=True,
     )
-    
+
     usage_scores = {
         "Exchange": 0.0,
         "OneDrive": 0.0,
@@ -252,9 +256,9 @@ async def test_generate_recommendation_no_license(db_session):
         "Teams": 0.0,
         "Office": 0.0,
     }
-    
+
     recommendation = await service._generate_recommendation(
         user, usage_scores, None, Decimal("0.00")
     )
-    
+
     assert recommendation is None

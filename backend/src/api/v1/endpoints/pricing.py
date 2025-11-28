@@ -5,17 +5,10 @@ from pathlib import Path
 from typing import Optional
 
 import structlog
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    HTTPException,
-    Query,
-    UploadFile,
-    status,
-)
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.deps import get_current_user
 from src.core.database import get_db
 from src.models.user import User
 from src.repositories.product_repository import PriceRepository, ProductRepository
@@ -25,7 +18,6 @@ from src.schemas.pricing import (
     PriceImportStats,
 )
 from src.services.price_import_service import PriceImportService
-from src.api.deps import get_current_user
 
 router = APIRouter(prefix="/pricing", tags=["pricing"])
 logger = structlog.get_logger(__name__)

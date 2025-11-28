@@ -20,15 +20,15 @@ from .base import Base, TimestampMixin, UUIDMixin
 # ✅ CORRECTION : Utiliser str.lower() comme valeur automatique
 class OnboardingStatus(str, PyEnum):
     """Tenant onboarding status"""
-    
+
     PENDING = "pending"
     ACTIVE = "active"
     SUSPENDED = "suspended"
     ERROR = "error"
-    
+
     # ✅ IMPORTANT : Surcharger _generate_next_value_ pour utiliser minuscules
     @staticmethod
-    def _generate_next_value_(name, start, count, last_values):
+    def _generate_next_value_(name: str, start: int, count: int, last_values: list) -> str:
         return name.lower()
 
 

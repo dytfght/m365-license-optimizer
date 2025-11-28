@@ -2,7 +2,7 @@
 Repository for Analysis operations
 """
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 from uuid import UUID
 
 import structlog

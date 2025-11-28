@@ -13,7 +13,9 @@ class RecommendationBase(BaseModel):
 
     analysis_id: UUID = Field(..., description="Analysis UUID")
     user_id: UUID = Field(..., description="User UUID")
-    current_sku: str | None = Field(None, description="Current SKU ID (null if no license)")
+    current_sku: str | None = Field(
+        None, description="Current SKU ID (null if no license)"
+    )
     recommended_sku: str | None = Field(
         None, description="Recommended SKU ID (null = remove license)"
     )
@@ -33,7 +35,9 @@ class RecommendationResponse(RecommendationBase):
     """Response schema for recommendation data"""
 
     id: UUID = Field(..., description="Recommendation UUID")
-    status: str = Field(..., description="Recommendation status (pending/accepted/rejected)")
+    status: str = Field(
+        ..., description="Recommendation status (pending/accepted/rejected)"
+    )
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime | None = Field(None, description="Last update timestamp")
 
