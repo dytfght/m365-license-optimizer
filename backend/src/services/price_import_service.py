@@ -1,16 +1,18 @@
 """
-CSV Import Service for Microsoft Pricing Data
+CSV Import Service for Microsoft Pricing Data - OPTIMIZED VERSION V2
 Handles importing Partner Center pricing CSV files into the database
 """
 import csv
+import asyncio
+import time
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
-
-import aiofiles  # type: ignore[import-untyped]
+from typing import Any, Dict, List, Set, Tuple
+import aiofiles
 import structlog
-from sqlalchemy import select
+from sqlalchemy import select, insert, and_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import MicrosoftPrice, MicrosoftProduct
@@ -20,95 +22,224 @@ logger = structlog.get_logger(__name__)
 
 class PriceImportService:
     """
-    Service for importing Microsoft pricing data from CSV files
+    Service for importing Microsoft pricing data from CSV files - VERSION OPTIMISÉE V2
 
-    Processes CSV files from Partner Center and imports them into
-    microsoft_products and microsoft_prices tables.
-
-    Features:
-    - Bulk upsert for products (avoids duplicates)
-    - Bulk insert for prices
-    - Error handling with detailed reporting
-    - Transaction management
+    Optimisations majeures :
+    1. Pré-chargement intelligent des produits existants
+    2. Bulk insert avec ON CONFLICT pour éviter les vérifications individuelles
+    3. Streaming CSV pour gérer de gros fichiers sans saturer la mémoire
+    4. Batch processing optimal (1000 lignes par batch)
+    5. Indexation en mémoire pour les vérifications rapides
     """
 
     def __init__(self, db_session: AsyncSession):
         self.db = db_session
         self.logger = logger
+        self.batch_size = 1000  # Taille optimale pour PostgreSQL
 
     async def import_csv(self, csv_path: Path) -> dict[str, Any]:
         """
-        Import pricing data from CSV file
-
-        Args:
-            csv_path: Path to the CSV file
-
-        Returns:
-            Dictionary with import statistics:
-            - products: Number of products processed
-            - prices: Number of prices processed
-            - errors: List of errors encountered
-
-        Raises:
-            FileNotFoundError: If CSV file doesn't exist
-            ValueError: If CSV format is invalid
+        Import pricing data from CSV file - VERSION OPTIMISÉE V2
         """
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV file not found: {csv_path}")
 
-        stats: dict[str, Any] = {"products": 0, "prices": 0, "errors": [], "skipped": 0}
-        products_map: dict[tuple[str, str], MicrosoftProduct] = {}
-        prices_list: list[MicrosoftPrice] = []
-
-        self.logger.info("csv_import_started", file=str(csv_path))
+        stats: dict[str, Any] = {
+            "products": 0, "prices": 0, "errors": [], 
+            "products_skipped": 0, "prices_skipped": 0,
+            "batches_processed": 0
+        }
+        
+        self.logger.info("csv_import_started_v2", file=str(csv_path))
 
         try:
-            async with aiofiles.open(csv_path, mode="r", encoding="utf-8") as file:
-                content = await file.read()
-                reader = csv.DictReader(content.splitlines())
+            # Étape 1: Pré-chargement intelligent des produits existants
+            existing_products = await self._load_existing_products()
+            self.logger.info("existing_products_loaded_v2", count=len(existing_products))
 
-                for line_num, row in enumerate(reader, start=2):  # Line 1 is header
-                    try:
-                        # Parse and create product/price objects
-                        product = self._parse_product(row)
-                        price = self._parse_price(row)
-
-                        # Track unique products
-                        product_key = (product.product_id, product.sku_id)
-                        if product_key not in products_map:
-                            products_map[product_key] = product
-
-                        # Collect all prices
-                        prices_list.append(price)
-
-                    except Exception as e:
-                        error_msg = f"Line {line_num}: {str(e)}"
-                        stats["errors"].append(error_msg)
-                        self.logger.warning(
-                            "csv_row_error", line=line_num, error=str(e)
-                        )
-
-            # Bulk insert/upsert in database
-            stats["products"] = await self._upsert_products(list(products_map.values()))
-            stats["prices"] = await self._insert_prices(prices_list)
+            # Étape 2: Streaming CSV avec batch processing
+            batch_stats = await self._process_csv_streaming(csv_path, existing_products)
+            
+            # Fusionner les statistiques
+            for key in stats:
+                if key in batch_stats:
+                    stats[key] += batch_stats[key]
 
             await self.db.commit()
 
             self.logger.info(
-                "csv_import_completed",
-                products=stats["products"],
-                prices=stats["prices"],
+                "csv_import_completed_v2",
+                products_inserted=stats["products"],
+                products_skipped=stats["products_skipped"],
+                prices_inserted=stats["prices"],
+                prices_skipped=stats["prices_skipped"],
+                batches_processed=stats["batches_processed"],
                 errors_count=len(stats["errors"]),
+                total_time=stats.get("total_time", 0)
             )
 
         except Exception as e:
             await self.db.rollback()
-            self.logger.error("csv_import_failed", error=str(e), exc_info=True)
+            self.logger.error("csv_import_failed_v2", error=str(e), exc_info=True)
             raise
 
         return stats
 
-    def _parse_product(self, row: dict[str, str]) -> MicrosoftProduct:
+    async def _load_existing_products(self) -> Set[Tuple[str, str]]:
+        """
+        Charger uniquement les clés des produits existants pour économiser la mémoire
+        """
+        stmt = select(MicrosoftProduct.product_id, MicrosoftProduct.sku_id)
+        result = await self.db.execute(stmt)
+        
+        # Retourner un set de tuples pour accès O(1)
+        return set(result.all())
+
+    async def _process_csv_streaming(
+        self, csv_path: Path, existing_products: Set[Tuple[str, str]]
+    ) -> dict[str, Any]:
+        """
+        Traiter le CSV en streaming avec batch processing optimal
+        """
+        stats = {
+            "products": 0, "prices": 0, "errors": [],
+            "products_skipped": 0, "prices_skipped": 0,
+            "batches_processed": 0, "total_time": 0
+        }
+        
+        start_time = time.time()
+        
+        products_batch: List[MicrosoftProduct] = []
+        prices_batch: List[MicrosoftPrice] = []
+        seen_products: Set[Tuple[str, str]] = set()  # Pour éviter les doublons dans le batch
+        
+        async with aiofiles.open(csv_path, mode="r", encoding="utf-8") as file:
+            # Lire l'en-tête
+            header_line = await file.readline()
+            if not header_line:
+                raise ValueError("CSV file is empty")
+            
+            reader = csv.DictReader([header_line])
+            fieldnames = reader.fieldnames
+            
+            line_num = 1
+            async for line in file:
+                line_num += 1
+                try:
+                    # Parser la ligne
+                    row = dict(zip(fieldnames, csv.reader([line]).__next__()))
+                    
+                    # Créer les objets
+                    product = self._parse_product(row)
+                    price = self._parse_price(row)
+                    
+                    product_key = (product.product_id, product.sku_id)
+                    
+                    # Gestion intelligente des produits
+                    if product_key not in existing_products and product_key not in seen_products:
+                        products_batch.append(product)
+                        seen_products.add(product_key)
+                        stats["products"] += 1
+                    else:
+                        stats["products_skipped"] += 1
+                    
+                    # Toujours ajouter les prix (ils peuvent avoir des variations)
+                    prices_batch.append(price)
+                    stats["prices"] += 1
+                    
+                    # Traiter le batch quand il atteint la taille optimale
+                    if len(products_batch) >= self.batch_size or len(prices_batch) >= self.batch_size:
+                        await self._process_batch(products_batch, prices_batch)
+                        stats["batches_processed"] += 1
+                        
+                        # Réinitialiser les batchs
+                        products_batch = []
+                        prices_batch = []
+                        seen_products = set()
+                        
+                        # Petit pause pour éviter de surcharger la base de données
+                        await asyncio.sleep(0.01)
+
+                except Exception as e:
+                    error_msg = f"Line {line_num}: {str(e)}"
+                    stats["errors"].append(error_msg)
+                    self.logger.warning("csv_row_error_v2", line=line_num, error=str(e))
+
+        # Traiter le dernier batch
+        if products_batch or prices_batch:
+            await self._process_batch(products_batch, prices_batch)
+            stats["batches_processed"] += 1
+
+        stats["total_time"] = time.time() - start_time
+        return stats
+
+    async def _process_batch(
+        self, products: List[MicrosoftProduct], prices: List[MicrosoftPrice]
+    ) -> None:
+        """
+        Traiter un batch de produits et prix
+        """
+        if products:
+            await self._bulk_insert_products(products)
+        
+        if prices:
+            await self._bulk_insert_prices(prices)
+
+    async def _bulk_insert_products(self, products: List[MicrosoftProduct]) -> None:
+        """
+        Bulk insert products avec ON CONFLICT - ultra optimisé
+        """
+        if not products:
+            return
+            
+        # Utiliser PostgreSQL INSERT ... ON CONFLICT DO NOTHING
+        stmt = pg_insert(MicrosoftProduct).values([
+            {
+                "product_id": p.product_id,
+                "sku_id": p.sku_id,
+                "product_title": p.product_title,
+                "sku_title": p.sku_title,
+                "publisher": p.publisher,
+                "sku_description": p.sku_description,
+                "unit_of_measure": p.unit_of_measure,
+                "tags": p.tags,
+            }
+            for p in products
+        ]).on_conflict_do_nothing(constraint="uq_product_sku")
+        
+        await self.db.execute(stmt)
+
+    async def _bulk_insert_prices(self, prices: List[MicrosoftPrice]) -> None:
+        """
+        Bulk insert prices avec ON CONFLICT - ultra optimisé
+        """
+        if not prices:
+            return
+            
+        # Utiliser PostgreSQL INSERT ... ON CONFLICT DO NOTHING
+        stmt = pg_insert(MicrosoftPrice).values([
+            {
+                "product_id": p.product_id,
+                "sku_id": p.sku_id,
+                "market": p.market,
+                "currency": p.currency,
+                "segment": p.segment,
+                "term_duration": p.term_duration,
+                "billing_plan": p.billing_plan,
+                "unit_price": p.unit_price,
+                "erp_price": p.erp_price,
+                "effective_start_date": p.effective_start_date,
+                "effective_end_date": p.effective_end_date,
+                "change_indicator": p.change_indicator,
+                "pricing_tier_range_min": p.pricing_tier_range_min,
+                "pricing_tier_range_max": p.pricing_tier_range_max,
+            }
+            for p in prices
+        ]).on_conflict_do_nothing(constraint="uq_price_variant")
+        
+        await self.db.execute(stmt)
+
+    def _parse_product(self, row: Dict[str, str]) -> MicrosoftProduct:
         """Parse CSV row into MicrosoftProduct object"""
         return MicrosoftProduct(
             product_id=row["ProductId"],
@@ -121,7 +252,7 @@ class PriceImportService:
             tags=[tag.strip() for tag in row.get("Tags", "").split(";") if tag.strip()],
         )
 
-    def _parse_price(self, row: dict[str, str]) -> MicrosoftPrice:
+    def _parse_price(self, row: Dict[str, str]) -> MicrosoftPrice:
         """Parse CSV row into MicrosoftPrice object"""
         return MicrosoftPrice(
             product_id=row["ProductId"],
@@ -143,28 +274,21 @@ class PriceImportService:
     @staticmethod
     def _parse_datetime(date_str: str) -> datetime:
         """Parse ISO 8601 datetime string"""
-        # Format: 2024-05-01T00:00:00.0000000Z
         return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
 
     @staticmethod
     def _parse_billing_plan(billing_plan: str) -> str:
         """Parse and validate billing plan value"""
-        # Handle None or empty values
         if not billing_plan or billing_plan.strip() == "":
-            return "Annual"  # Default to Annual
+            return "Annual"
         
-        # Handle "None" string from CSV
         if billing_plan.strip() == "None":
-            return "Annual"  # Default to Annual
+            return "Annual"
         
-        # Validate against allowed values
         billing_plan_clean = billing_plan.strip()
         if billing_plan_clean not in ["Annual", "Monthly"]:
-            # Log warning and default to Annual
             logger.warning(
-                "invalid_billing_plan_value",
-                value=billing_plan_clean,
-                default="Annual"
+                "invalid_billing_plan_value", value=billing_plan_clean, default="Annual"
             )
             return "Annual"
         
@@ -176,32 +300,3 @@ class PriceImportService:
         if not value or value.strip() == "":
             return None
         return int(value)
-
-    async def _upsert_products(self, products: list[MicrosoftProduct]) -> int:
-        """
-        Bulk upsert products (insert or update if exists)
-
-        Using merge() to handle conflicts on unique constraint
-        """
-        count = 0
-        for product in products:
-            # Check if product exists
-            stmt = select(MicrosoftProduct).where(
-                MicrosoftProduct.product_id == product.product_id,
-                MicrosoftProduct.sku_id == product.sku_id,
-            )
-            result = await self.db.execute(stmt)
-            existing = result.scalar_one_or_none()
-
-            if not existing:
-                self.db.add(product)
-                count += 1
-
-        await self.db.flush()
-        return count
-
-    async def _insert_prices(self, prices: list[MicrosoftPrice]) -> int:
-        """Bulk insert prices"""
-        self.db.add_all(prices)
-        await self.db.flush()
-        return len(prices)

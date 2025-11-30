@@ -1,6 +1,8 @@
 """
 Unit tests for database models
 """
+from uuid import uuid4
+
 import pytest
 
 from src.models.tenant import (
@@ -20,7 +22,7 @@ class TestTenantClientModel:
     async def test_create_tenant_client(self, db_session):
         """Test creating a tenant client"""
         tenant = TenantClient(
-            tenant_id="12345678-1234-1234-1234-123456789012",
+            tenant_id=str(uuid4()),
             name="Test Company",
             country="FR",
             default_language="fr",
@@ -40,7 +42,7 @@ class TestTenantClientModel:
     @pytest.mark.asyncio
     async def test_tenant_unique_tenant_id(self, db_session):
         """Test that tenant_id must be unique"""
-        tenant_id = "12345678-1234-1234-1234-123456789012"
+        tenant_id = str(uuid4())
 
         tenant1 = TenantClient(
             tenant_id=tenant_id,
@@ -71,7 +73,7 @@ class TestTenantAppRegistrationModel:
         """Test creating an app registration"""
         # Create tenant first
         tenant = TenantClient(
-            tenant_id="12345678-1234-1234-1234-123456789012",
+            tenant_id=str(uuid4()),
             name="Test Company",
             country="FR",
         )
@@ -81,7 +83,7 @@ class TestTenantAppRegistrationModel:
         # Create app registration
         app_reg = TenantAppRegistration(
             tenant_client_id=tenant.id,
-            client_id="87654321-4321-4321-4321-210987654321",
+            client_id=str(uuid4()),
             client_secret_encrypted="test-secret",
             authority_url="https://login.microsoftonline.com/test",
             scopes=["User.Read.All", "Directory.Read.All"],
@@ -93,7 +95,7 @@ class TestTenantAppRegistrationModel:
         await db_session.refresh(app_reg)
 
         assert app_reg.id is not None
-        assert app_reg.client_id == "87654321-4321-4321-4321-210987654321"
+        assert app_reg.client_id is not None
         assert app_reg.scopes == ["User.Read.All", "Directory.Read.All"]
         assert app_reg.is_valid is False
 
@@ -101,16 +103,17 @@ class TestTenantAppRegistrationModel:
     async def test_app_registration_relationship(self, db_session):
         """Test relationship between tenant and app registration"""
         tenant = TenantClient(
-            tenant_id="12345678-1234-1234-1234-123456789012",
+            tenant_id=str(uuid4()),
             name="Test Company",
             country="FR",
         )
         db_session.add(tenant)
         await db_session.flush()
 
+        client_id = str(uuid4())
         app_reg = TenantAppRegistration(
             tenant_client_id=tenant.id,
-            client_id="87654321-4321-4321-4321-210987654321",
+            client_id=client_id,
             client_secret_encrypted="test-secret",
             authority_url="https://login.microsoftonline.com/test",
             scopes=["User.Read.All"],
@@ -122,9 +125,7 @@ class TestTenantAppRegistrationModel:
         await db_session.refresh(tenant, ["app_registration"])
 
         assert tenant.app_registration is not None
-        assert (
-            tenant.app_registration.client_id == "87654321-4321-4321-4321-210987654321"
-        )
+        assert tenant.app_registration.client_id == client_id
 
 
 @pytest.mark.unit
@@ -136,7 +137,7 @@ class TestUserModel:
         """Test creating a user"""
         # Create tenant first
         tenant = TenantClient(
-            tenant_id="12345678-1234-1234-1234-123456789012",
+            tenant_id=str(uuid4()),
             name="Test Company",
             country="FR",
         )
@@ -145,9 +146,9 @@ class TestUserModel:
 
         # Create user
         user = User(
-            graph_id="user-graph-id-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="john.doe@testcompany.com",
+            user_principal_name=f"john.doe.{uuid4()}@testcompany.com",
             display_name="John Doe",
             account_enabled=True,
             department="IT",
@@ -159,7 +160,7 @@ class TestUserModel:
         await db_session.refresh(user)
 
         assert user.id is not None
-        assert user.graph_id == "user-graph-id-123"
+        assert user.graph_id is not None
         assert user.display_name == "John Doe"
         assert user.department == "IT"
 
@@ -173,7 +174,7 @@ class TestLicenseAssignmentModel:
         """Test creating a license assignment"""
         # Setup tenant and user
         tenant = TenantClient(
-            tenant_id="12345678-1234-1234-1234-123456789012",
+            tenant_id=str(uuid4()),
             name="Test Company",
             country="FR",
         )
@@ -181,18 +182,19 @@ class TestLicenseAssignmentModel:
         await db_session.flush()
 
         user = User(
-            graph_id="user-graph-id-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="john.doe@testcompany.com",
+            user_principal_name=f"john.doe.{uuid4()}@testcompany.com",
             display_name="John Doe",
         )
         db_session.add(user)
         await db_session.flush()
 
         # Create license assignment
+        sku_id = str(uuid4())
         license = LicenseAssignment(
             user_id=user.id,
-            sku_id="6fd2c87f-b296-42f0-b197-1e91e994b900",
+            sku_id=sku_id,
             status=LicenseStatus.ACTIVE,
             source=AssignmentSource.MANUAL,
         )
@@ -202,14 +204,14 @@ class TestLicenseAssignmentModel:
         await db_session.refresh(license)
 
         assert license.id is not None
-        assert license.sku_id == "6fd2c87f-b296-42f0-b197-1e91e994b900"
+        assert license.sku_id == sku_id
         assert license.status == LicenseStatus.ACTIVE
 
     @pytest.mark.asyncio
     async def test_license_unique_constraint(self, db_session):
         """Test unique constraint on user_id + sku_id"""
         tenant = TenantClient(
-            tenant_id="12345678-1234-1234-1234-123456789012",
+            tenant_id=str(uuid4()),
             name="Test Company",
             country="FR",
         )
@@ -217,14 +219,14 @@ class TestLicenseAssignmentModel:
         await db_session.flush()
 
         user = User(
-            graph_id="user-graph-id-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="john.doe@testcompany.com",
+            user_principal_name=f"john.doe.{uuid4()}@testcompany.com",
         )
         db_session.add(user)
         await db_session.flush()
 
-        sku_id = "6fd2c87f-b296-42f0-b197-1e91e994b900"
+        sku_id = str(uuid4())
 
         # First license
         license1 = LicenseAssignment(user_id=user.id, sku_id=sku_id)

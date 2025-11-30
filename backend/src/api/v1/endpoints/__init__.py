@@ -1,6 +1,15 @@
 """
 V1 endpoints package
 """
-from . import auth, health, tenants
+from . import analyses, analytics, auth, graph, health, pricing, reports, tenants
 
-__all__ = ["auth", "health", "tenants"]
+__all__ = [
+    "analyses",
+    "analytics",
+    "auth",
+    "graph",
+    "health",
+    "pricing",
+    "reports",
+    "tenants",
+]

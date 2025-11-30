@@ -17,7 +17,7 @@ from src.schemas.pricing import (
     MicrosoftProductResponse,
     PriceImportStats,
 )
-from src.services.price_import_service import PriceImportService
+from src.services.price_import_service import PriceImportServiceOptimizedV2 as PriceImportService
 
 router = APIRouter(prefix="/pricing", tags=["pricing"])
 logger = structlog.get_logger(__name__)

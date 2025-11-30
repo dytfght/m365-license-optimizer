@@ -3,17 +3,17 @@ Microsoft Graph API endpoints for syncing users, licenses, and usage data
 """
 import time
 from datetime import datetime
-from uuid import UUID
 from typing import Annotated
+from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....core.middleware import limiter
 from ....models.tenant import TenantClient
 from ....models.user import AssignmentSource, LicenseStatus
+from ....repositories.tenant_repository import TenantRepository
 from ....schemas.graph import (
     SyncLicensesRequest,
     SyncLicensesResponse,
@@ -30,7 +30,6 @@ from ...dependencies import (
     UserRepositoryDep,
 )
 from ...deps import get_current_user
-from ....repositories.tenant_repository import TenantRepository
 
 logger = structlog.get_logger(__name__)
 
@@ -41,21 +40,21 @@ async def get_tenant_with_app_reg(db: AsyncSession, tenant_id: str) -> TenantCli
     """Get tenant with app registration or raise 404"""
     tenant_repo = TenantRepository(db)
     tenant = await tenant_repo.get_with_app_registration(UUID(tenant_id))
-    
+
     if not tenant:
         logger.warning("tenant_not_found", tenant_id=tenant_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Tenant {tenant_id} not found",
         )
-    
+
     if not tenant.app_registration:
         logger.warning("app_registration_not_found", tenant_id=tenant_id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Tenant {tenant_id} has no app registration configured",
         )
-    
+
     return tenant
 
 

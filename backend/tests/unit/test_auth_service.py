@@ -21,7 +21,7 @@ class TestAuthService:
         """Test successful user authentication"""
         # Create a tenant
         tenant = TenantClient(
-            tenant_id="test-tenant-123",
+            tenant_id=str(uuid4()),
             name="Test Tenant",
             country="FR",
             default_language="fr",
@@ -33,9 +33,9 @@ class TestAuthService:
         # Create a user with password
         password = "SecurePassword123!"
         user = User(
-            graph_id="user-graph-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="user@test.com",
+            user_principal_name=f"user_{uuid4()}@test.com",
             display_name="Test User",
             account_enabled=True,
             password_hash=get_password_hash(password),
@@ -45,10 +45,12 @@ class TestAuthService:
 
         # Test authentication
         auth_service = AuthService(db_session)
-        user_data = await auth_service.authenticate_user("user@test.com", password)
+        user_data = await auth_service.authenticate_user(
+            user.user_principal_name, password
+        )
 
         assert user_data is not None
-        assert user_data["email"] == "user@test.com"
+        assert user_data["user_principal_name"] == user.user_principal_name
         assert user_data["display_name"] == "Test User"
         assert "id" in user_data
 
@@ -57,7 +59,7 @@ class TestAuthService:
         """Test authentication with wrong password"""
         # Create a tenant
         tenant = TenantClient(
-            tenant_id="test-tenant-123",
+            tenant_id=str(uuid4()),
             name="Test Tenant",
             country="FR",
         )
@@ -67,9 +69,9 @@ class TestAuthService:
         # Create a user
         password = "SecurePassword123!"
         user = User(
-            graph_id="user-graph-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="user@test.com",
+            user_principal_name=f"user_{uuid4()}@test.com",
             account_enabled=True,
             password_hash=get_password_hash(password),
         )
@@ -79,7 +81,9 @@ class TestAuthService:
         # Test with wrong password
         auth_service = AuthService(db_session)
         with pytest.raises(AuthenticationError, match="Invalid credentials"):
-            await auth_service.authenticate_user("user@test.com", "WrongPassword!")
+            await auth_service.authenticate_user(
+                user.user_principal_name, "WrongPassword!"
+            )
 
     @pytest.mark.asyncio
     async def test_authenticate_user_not_found(self, db_session: AsyncSession):
@@ -94,7 +98,7 @@ class TestAuthService:
         """Test authentication with disabled account"""
         # Create a tenant
         tenant = TenantClient(
-            tenant_id="test-tenant-123",
+            tenant_id=str(uuid4()),
             name="Test Tenant",
             country="FR",
         )
@@ -104,9 +108,9 @@ class TestAuthService:
         # Create a disabled user
         password = "SecurePassword123!"
         user = User(
-            graph_id="user-graph-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="user@test.com",
+            user_principal_name=f"user_{uuid4()}@test.com",
             account_enabled=False,
             password_hash=get_password_hash(password),
         )
@@ -116,14 +120,14 @@ class TestAuthService:
         # Test authentication
         auth_service = AuthService(db_session)
         with pytest.raises(AuthenticationError, match="Account is disabled"):
-            await auth_service.authenticate_user("user@test.com", password)
+            await auth_service.authenticate_user(user.user_principal_name, password)
 
     @pytest.mark.asyncio
     async def test_create_tokens(self, db_session: AsyncSession):
         """Test token creation"""
         user_data = {
             "id": uuid4(),
-            "email": "user@test.com",
+            "user_principal_name": "user@test.com",
             "tenant_client_id": uuid4(),
             "display_name": "Test User",
         }
@@ -141,7 +145,7 @@ class TestAuthService:
         """Test successful token refresh"""
         # Create a tenant
         tenant = TenantClient(
-            tenant_id="test-tenant-123",
+            tenant_id=str(uuid4()),
             name="Test Tenant",
             country="FR",
         )
@@ -150,9 +154,9 @@ class TestAuthService:
 
         # Create a user
         user = User(
-            graph_id="user-graph-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="user@test.com",
+            user_principal_name=f"user_{uuid4()}@test.com",
             account_enabled=True,
         )
         db_session.add(user)
@@ -161,7 +165,7 @@ class TestAuthService:
         # Create tokens
         user_data = {
             "id": user.id,
-            "email": "user@test.com",
+            "user_principal_name": user.user_principal_name,
             "tenant_client_id": tenant.id,
             "display_name": "Test User",
         }
@@ -190,7 +194,7 @@ class TestAuthService:
         """Test that refresh fails when using access token instead of refresh token"""
         # Create a tenant and user
         tenant = TenantClient(
-            tenant_id="test-tenant-123",
+            tenant_id=str(uuid4()),
             name="Test Tenant",
             country="FR",
         )
@@ -198,9 +202,9 @@ class TestAuthService:
         await db_session.flush()
 
         user = User(
-            graph_id="user-graph-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="user@test.com",
+            user_principal_name=f"user_{uuid4()}@test.com",
             account_enabled=True,
         )
         db_session.add(user)
@@ -209,7 +213,7 @@ class TestAuthService:
         # Create tokens
         user_data = {
             "id": user.id,
-            "email": "user@test.com",
+            "user_principal_name": user.user_principal_name,
             "tenant_client_id": tenant.id,
             "display_name": "Test User",
         }

@@ -13,11 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....core.database import get_db
 from ....models.user import User
-from ....schemas.analysis import (
-    AnalysisDetailResponse,
-    AnalysisList,
-    AnalysisResponse,
-)
+from ....schemas.analysis import AnalysisDetailResponse, AnalysisList, AnalysisResponse
 from ....schemas.recommendation import (
     ApplyRecommendationRequest,
     ApplyRecommendationResponse,

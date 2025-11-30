@@ -8,6 +8,8 @@ from uuid import UUID as UUID_TYPE
 
 if TYPE_CHECKING:
     from .analysis import Analysis
+    from .analytics import AnalyticsMetric, AnalyticsSnapshot
+    from .report import Report
     from .user import User
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
@@ -28,7 +30,9 @@ class OnboardingStatus(str, PyEnum):
 
     # ✅ IMPORTANT : Surcharger _generate_next_value_ pour utiliser minuscules
     @staticmethod
-    def _generate_next_value_(name: str, start: int, count: int, last_values: list) -> str:
+    def _generate_next_value_(
+        name: str, start: int, count: int, last_values: list
+    ) -> str:
         return name.lower()
 
 
@@ -95,6 +99,12 @@ class TenantClient(Base, UUIDMixin, TimestampMixin):
     )
     reports: Mapped[list["Report"]] = relationship(
         "Report", back_populates="tenant", cascade="all, delete-orphan"
+    )
+    analytics_metrics: Mapped[list["AnalyticsMetric"]] = relationship(
+        "AnalyticsMetric", back_populates="tenant", cascade="all, delete-orphan"
+    )
+    analytics_snapshots: Mapped[list["AnalyticsSnapshot"]] = relationship(
+        "AnalyticsSnapshot", back_populates="tenant", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

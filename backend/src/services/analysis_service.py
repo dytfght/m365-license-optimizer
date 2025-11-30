@@ -66,7 +66,6 @@ SKU_TO_SERVICES = {
         "Teams",
         "Office",
     ],
-
     # Exchange Online Plan 1
     "4b9405b0-7788-4568-add1-99614e613b69": ["Exchange"],
     # Exchange Online Plan 2

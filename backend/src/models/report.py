@@ -3,18 +3,10 @@ Report Model - Stores generated PDF and Excel reports
 """
 from datetime import datetime
 from typing import Optional
-from uuid import uuid4
 
-from sqlalchemy import (
-    Column,
-    DateTime,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-    func,
-)
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+from sqlalchemy import DateTime, ForeignKey, Integer, String, func
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, UUIDMixin
@@ -50,12 +42,8 @@ class Report(Base, UUIDMixin):
     file_path: Mapped[str] = mapped_column(
         String(500), nullable=False, comment="Storage path"
     )
-    file_size_bytes: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
-    mime_type: Mapped[str] = mapped_column(
-        String(100), nullable=False
-    )
+    file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
 
     # Report content metadata
     report_metadata: Mapped[dict] = mapped_column(

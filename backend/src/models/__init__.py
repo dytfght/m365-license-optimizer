@@ -1,7 +1,9 @@
 """
 Database models for M365 License Optimizer
 """
+from .addon_compatibility import AddonCompatibility
 from .analysis import Analysis, AnalysisStatus
+from .analytics import AnalyticsMetric, AnalyticsSnapshot, MetricType, SnapshotType
 from .base import Base
 from .microsoft_price import MicrosoftPrice
 from .microsoft_product import MicrosoftProduct
@@ -22,9 +24,14 @@ __all__ = [
     "UsageMetrics",
     "MicrosoftProduct",
     "MicrosoftPrice",
+    "AddonCompatibility",
     "Analysis",
     "AnalysisStatus",
     "Recommendation",
     "RecommendationStatus",
     "Report",
+    "AnalyticsMetric",
+    "AnalyticsSnapshot",
+    "MetricType",
+    "SnapshotType",
 ]

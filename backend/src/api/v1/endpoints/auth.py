@@ -56,7 +56,7 @@ async def login(
         logger.info(
             "user_logged_in",
             user_id=str(user_data["id"]),
-            email=user_data["email"],
+            email=user_data["user_principal_name"],
         )
 
         return tokens

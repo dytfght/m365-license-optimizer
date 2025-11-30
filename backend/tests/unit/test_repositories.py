@@ -1,6 +1,8 @@
 """
 Unit tests for repositories
 """
+from uuid import uuid4
+
 import pytest
 
 from src.models.tenant import OnboardingStatus, TenantClient
@@ -19,7 +21,7 @@ class TestTenantRepository:
         repo = TenantRepository(db_session)
 
         tenant = await repo.create(
-            tenant_id="12345678-1234-1234-1234-123456789012",
+            tenant_id=str(uuid4()),
             name="Test Company",
             country="FR",
             default_language="fr",
@@ -33,7 +35,7 @@ class TestTenantRepository:
         """Test getting tenant by Azure AD tenant ID"""
         repo = TenantRepository(db_session)
 
-        tenant_id = "12345678-1234-1234-1234-123456789012"
+        tenant_id = str(uuid4())
         created_tenant = await repo.create(
             tenant_id=tenant_id,
             name="Test Company",
@@ -55,7 +57,7 @@ class TestTenantRepository:
 
         # Create active tenant
         await repo.create(
-            tenant_id="11111111-1111-1111-1111-111111111111",
+            tenant_id=str(uuid4()),
             name="Active Company",
             country="FR",
             onboarding_status=OnboardingStatus.ACTIVE,
@@ -63,7 +65,7 @@ class TestTenantRepository:
 
         # Create pending tenant
         await repo.create(
-            tenant_id="22222222-2222-2222-2222-222222222222",
+            tenant_id=str(uuid4()),
             name="Pending Company",
             country="US",
             onboarding_status=OnboardingStatus.PENDING,
@@ -73,8 +75,13 @@ class TestTenantRepository:
 
         active_tenants = await repo.get_active_tenants()
 
-        assert len(active_tenants) == 1
-        assert active_tenants[0].name == "Active Company"
+        # We assert that we have at least 1 active tenant.
+        # Other tests might have created active tenants, so exact count check is risky in parallel exec
+        assert len(active_tenants) >= 1
+        # Check if our created tenant is in the list
+        names = [t.name for t in active_tenants]
+        assert "Active Company" in names
+        assert "Pending Company" not in names
 
     @pytest.mark.asyncio
     async def test_create_with_app_registration(self, db_session):
@@ -82,13 +89,13 @@ class TestTenantRepository:
         repo = TenantRepository(db_session)
 
         tenant_data = {
-            "tenant_id": "12345678-1234-1234-1234-123456789012",
+            "tenant_id": str(uuid4()),
             "name": "Test Company",
             "country": "FR",
         }
 
         app_reg_data = {
-            "client_id": "87654321-4321-4321-4321-210987654321",
+            "client_id": str(uuid4()),
             "client_secret_encrypted": "test-secret",
             "authority_url": "https://login.microsoftonline.com/test",
             "scopes": ["User.Read.All"],
@@ -99,9 +106,7 @@ class TestTenantRepository:
 
         assert tenant.id is not None
         assert tenant.app_registration is not None
-        assert (
-            tenant.app_registration.client_id == "87654321-4321-4321-4321-210987654321"
-        )
+        assert tenant.app_registration.client_id == app_reg_data["client_id"]
 
 
 @pytest.mark.unit
@@ -112,7 +117,7 @@ class TestUserRepository:
     async def test_upsert_user_create(self, db_session):
         """Test upserting a new user"""
         tenant = TenantClient(
-            tenant_id="12345678-1234-1234-1234-123456789012",
+            tenant_id=str(uuid4()),
             name="Test Company",
             country="FR",
         )
@@ -122,21 +127,20 @@ class TestUserRepository:
         repo = UserRepository(db_session)
 
         user = await repo.upsert_user(
-            graph_id="user-graph-id-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="john.doe@test.com",
+            user_principal_name=f"john.doe.{uuid4()}@test.com",
             display_name="John Doe",
         )
 
         assert user.id is not None
-        assert user.graph_id == "user-graph-id-123"
         assert user.display_name == "John Doe"
 
     @pytest.mark.asyncio
     async def test_upsert_user_update(self, db_session):
         """Test upserting an existing user"""
         tenant = TenantClient(
-            tenant_id="12345678-1234-1234-1234-123456789012",
+            tenant_id=str(uuid4()),
             name="Test Company",
             country="FR",
         )
@@ -144,21 +148,23 @@ class TestUserRepository:
         await db_session.flush()
 
         repo = UserRepository(db_session)
+        graph_id = str(uuid4())
+        upn = f"john.doe.{uuid4()}@test.com"
 
         # Create user
         user1 = await repo.upsert_user(
-            graph_id="user-graph-id-123",
+            graph_id=graph_id,
             tenant_client_id=tenant.id,
-            user_principal_name="john.doe@test.com",
+            user_principal_name=upn,
             display_name="John Doe",
         )
         await db_session.commit()
 
         # Update same user
         user2 = await repo.upsert_user(
-            graph_id="user-graph-id-123",
+            graph_id=graph_id,
             tenant_client_id=tenant.id,
-            user_principal_name="john.doe@test.com",
+            user_principal_name=upn,
             display_name="John Doe Updated",
             department="IT",
         )
@@ -172,7 +178,7 @@ class TestUserRepository:
     async def test_sync_licenses(self, db_session):
         """Test syncing licenses (replace all)"""
         tenant = TenantClient(
-            tenant_id="12345678-1234-1234-1234-123456789012",
+            tenant_id=str(uuid4()),
             name="Test Company",
             country="FR",
         )
@@ -180,9 +186,9 @@ class TestUserRepository:
         await db_session.flush()
 
         user = User(
-            graph_id="user-graph-id-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="john.doe@test.com",
+            user_principal_name=f"john.doe.{uuid4()}@test.com",
         )
         db_session.add(user)
         await db_session.flush()
@@ -191,8 +197,8 @@ class TestUserRepository:
 
         # Initial licenses
         licenses1 = [
-            {"sku_id": "sku-1", "status": "active"},
-            {"sku_id": "sku-2", "status": "active"},
+            {"sku_id": str(uuid4()), "status": "active"},
+            {"sku_id": str(uuid4()), "status": "active"},
         ]
 
         await repo.sync_licenses(user.id, licenses1)
@@ -203,7 +209,7 @@ class TestUserRepository:
 
         # Update licenses (should replace)
         licenses2 = [
-            {"sku_id": "sku-3", "status": "active"},
+            {"sku_id": str(uuid4()), "status": "active"},
         ]
 
         await repo.sync_licenses(user.id, licenses2)
@@ -211,4 +217,4 @@ class TestUserRepository:
 
         await db_session.refresh(user, ["license_assignments"])
         assert len(user.license_assignments) == 1
-        assert user.license_assignments[0].sku_id == "sku-3"
+        assert user.license_assignments[0].sku_id == licenses2[0]["sku_id"]

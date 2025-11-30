@@ -82,7 +82,7 @@ class AuthService:
 
         return {
             "id": user.id,
-            "email": user.user_principal_name,
+            "user_principal_name": user.user_principal_name,
             "tenant_client_id": user.tenant_client_id,
             "display_name": user.display_name,
         }
@@ -92,7 +92,7 @@ class AuthService:
         Create access and refresh tokens for a user.
 
         Args:
-            user_data: User data dictionary with id, email, tenant_client_id
+            user_data: User data dictionary with id, user_principal_name, tenant_client_id
 
         Returns:
             Token object with access_token and refresh_token
@@ -103,7 +103,7 @@ class AuthService:
         # Prepare token payload
         token_data = {
             "sub": str(user_data["id"]),
-            "email": user_data["email"],
+            "email": user_data["user_principal_name"],
             "tenants": tenants,
         }
 

@@ -1,6 +1,8 @@
 """
 Integration tests for protected tenants endpoint
 """
+from uuid import uuid4
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,8 +29,9 @@ class TestTenantsEndpoint:
     ):
         """Test listing tenants with valid authentication"""
         # Create a tenant
+        tenant_id = str(uuid4())
         tenant = TenantClient(
-            tenant_id="test-tenant-123",
+            tenant_id=tenant_id,
             name="Test Tenant",
             country="FR",
             default_language="fr",
@@ -39,10 +42,11 @@ class TestTenantsEndpoint:
 
         # Create a user
         password = "SecurePassword123!"
+        user_principal_name = f"user_{uuid4()}@test.com"
         user = User(
-            graph_id="user-graph-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="user@test.com",
+            user_principal_name=user_principal_name,
             display_name="Test User",
             account_enabled=True,
             password_hash=get_password_hash(password),
@@ -54,7 +58,7 @@ class TestTenantsEndpoint:
         login_response = await client.post(
             "/api/v1/auth/login",
             data={
-                "username": "user@test.com",
+                "username": user_principal_name,
                 "password": password,
             },
         )
@@ -73,12 +77,13 @@ class TestTenantsEndpoint:
         assert "total" in data
         assert data["total"] >= 1
 
-        # Check tenant data
-        tenant_data = data["tenants"][0]
-        assert tenant_data["name"] == "Test Tenant"
-        assert tenant_data["tenant_id"] == "test-tenant-123"
-        assert tenant_data["country"] == "FR"
-        assert tenant_data["default_language"] == "fr"
+        # Check if our created tenant is in the list
+        tenants = data["tenants"]
+        found_tenant = next((t for t in tenants if t["tenant_id"] == tenant_id), None)
+        assert found_tenant is not None
+        assert found_tenant["name"] == "Test Tenant"
+        assert found_tenant["country"] == "FR"
+        assert found_tenant["default_language"] == "fr"
 
     @pytest.mark.asyncio
     async def test_list_tenants_with_invalid_token(self, client: AsyncClient):

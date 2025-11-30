@@ -8,6 +8,21 @@ from .analysis import (
     AnalysisResponse,
     AnalysisSummary,
 )
+from .analytics import (
+    AnalyticsMetricCreate,
+    AnalyticsMetricFilter,
+    AnalyticsMetricListResponse,
+    AnalyticsMetricResponse,
+    AnalyticsMetricUpdate,
+    AnalyticsSnapshotCreate,
+    AnalyticsSnapshotFilter,
+    AnalyticsSnapshotListResponse,
+    AnalyticsSnapshotResponse,
+    AnalyticsSnapshotUpdate,
+    AnalyticsSummaryResponse,
+    DashboardKPIsResponse,
+    KPIResponse,
+)
 from .health import DetailedHealthCheck, HealthCheck, VersionResponse
 from .recommendation import (
     ApplyRecommendationRequest,
@@ -52,4 +67,18 @@ __all__ = [
     "ApplyRecommendationRequest",
     "ApplyRecommendationResponse",
     "RecommendationList",
+    # Analytics
+    "AnalyticsMetricCreate",
+    "AnalyticsMetricResponse",
+    "AnalyticsMetricUpdate",
+    "AnalyticsMetricListResponse",
+    "AnalyticsMetricFilter",
+    "AnalyticsSnapshotCreate",
+    "AnalyticsSnapshotResponse",
+    "AnalyticsSnapshotUpdate",
+    "AnalyticsSnapshotListResponse",
+    "AnalyticsSnapshotFilter",
+    "AnalyticsSummaryResponse",
+    "DashboardKPIsResponse",
+    "KPIResponse",
 ]

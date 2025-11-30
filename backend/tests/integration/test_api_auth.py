@@ -1,6 +1,8 @@
 """
 Integration tests for auth endpoints (login and refresh)
 """
+from uuid import uuid4
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +21,7 @@ class TestAuthEndpoints:
         """Test successful login"""
         # Create a tenant
         tenant = TenantClient(
-            tenant_id="test-tenant-123",
+            tenant_id=str(uuid4()),
             name="Test Tenant",
             country="FR",
             onboarding_status="active",
@@ -29,10 +31,11 @@ class TestAuthEndpoints:
 
         # Create a user with password
         password = "SecurePassword123!"
+        user_principal_name = f"user_{uuid4()}@test.com"
         user = User(
-            graph_id="user-graph-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="user@test.com",
+            user_principal_name=user_principal_name,
             display_name="Test User",
             account_enabled=True,
             password_hash=get_password_hash(password),
@@ -44,7 +47,7 @@ class TestAuthEndpoints:
         response = await client.post(
             "/api/v1/auth/login",
             data={
-                "username": "user@test.com",  # OAuth2 uses 'username' field
+                "username": user_principal_name,  # OAuth2 uses 'username' field
                 "password": password,
             },
         )
@@ -63,7 +66,7 @@ class TestAuthEndpoints:
         """Test login with wrong password"""
         # Create a tenant and user
         tenant = TenantClient(
-            tenant_id="test-tenant-123",
+            tenant_id=str(uuid4()),
             name="Test Tenant",
             country="FR",
         )
@@ -71,10 +74,11 @@ class TestAuthEndpoints:
         await db_session.flush()
 
         password = "SecurePassword123!"
+        user_principal_name = f"user_{uuid4()}@test.com"
         user = User(
-            graph_id="user-graph-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="user@test.com",
+            user_principal_name=user_principal_name,
             account_enabled=True,
             password_hash=get_password_hash(password),
         )
@@ -85,7 +89,7 @@ class TestAuthEndpoints:
         response = await client.post(
             "/api/v1/auth/login",
             data={
-                "username": "user@test.com",
+                "username": user_principal_name,
                 "password": "WrongPassword!",
             },
         )
@@ -99,7 +103,7 @@ class TestAuthEndpoints:
         response = await client.post(
             "/api/v1/auth/login",
             data={
-                "username": "nonexistent@test.com",
+                "username": f"nonexistent_{uuid4()}@test.com",
                 "password": "password",
             },
         )
@@ -113,7 +117,7 @@ class TestAuthEndpoints:
         """Test login with disabled account"""
         # Create a tenant and disabled user
         tenant = TenantClient(
-            tenant_id="test-tenant-123",
+            tenant_id=str(uuid4()),
             name="Test Tenant",
             country="FR",
         )
@@ -121,10 +125,11 @@ class TestAuthEndpoints:
         await db_session.flush()
 
         password = "SecurePassword123!"
+        user_principal_name = f"user_{uuid4()}@test.com"
         user = User(
-            graph_id="user-graph-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="user@test.com",
+            user_principal_name=user_principal_name,
             account_enabled=False,
             password_hash=get_password_hash(password),
         )
@@ -135,7 +140,7 @@ class TestAuthEndpoints:
         response = await client.post(
             "/api/v1/auth/login",
             data={
-                "username": "user@test.com",
+                "username": user_principal_name,
                 "password": password,
             },
         )
@@ -150,7 +155,7 @@ class TestAuthEndpoints:
         """Test successful token refresh"""
         # Create a tenant and user
         tenant = TenantClient(
-            tenant_id="test-tenant-123",
+            tenant_id=str(uuid4()),
             name="Test Tenant",
             country="FR",
         )
@@ -158,10 +163,11 @@ class TestAuthEndpoints:
         await db_session.flush()
 
         password = "SecurePassword123!"
+        user_principal_name = f"user_{uuid4()}@test.com"
         user = User(
-            graph_id="user-graph-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="user@test.com",
+            user_principal_name=user_principal_name,
             account_enabled=True,
             password_hash=get_password_hash(password),
         )
@@ -172,7 +178,7 @@ class TestAuthEndpoints:
         login_response = await client.post(
             "/api/v1/auth/login",
             data={
-                "username": "user@test.com",
+                "username": user_principal_name,
                 "password": password,
             },
         )
@@ -208,7 +214,7 @@ class TestAuthEndpoints:
         """Test that refresh fails when using access token"""
         # Create a tenant and user
         tenant = TenantClient(
-            tenant_id="test-tenant-123",
+            tenant_id=str(uuid4()),
             name="Test Tenant",
             country="FR",
         )
@@ -216,10 +222,11 @@ class TestAuthEndpoints:
         await db_session.flush()
 
         password = "SecurePassword123!"
+        user_principal_name = f"user_{uuid4()}@test.com"
         user = User(
-            graph_id="user-graph-123",
+            graph_id=str(uuid4()),
             tenant_client_id=tenant.id,
-            user_principal_name="user@test.com",
+            user_principal_name=user_principal_name,
             account_enabled=True,
             password_hash=get_password_hash(password),
         )
@@ -230,7 +237,7 @@ class TestAuthEndpoints:
         login_response = await client.post(
             "/api/v1/auth/login",
             data={
-                "username": "user@test.com",
+                "username": user_principal_name,
                 "password": password,
             },
         )

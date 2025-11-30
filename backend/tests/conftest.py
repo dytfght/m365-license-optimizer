@@ -1,7 +1,9 @@
 """
-Pytest configuration and fixtures for all tests
+Optimized Pytest configuration for parallel testing with pytest-xdist
 """
 import asyncio
+import os
+import sys
 from typing import AsyncGenerator
 
 import pytest
@@ -11,22 +13,32 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 from src.core.config import settings
 from src.core.database import get_db
-from src.core.security import create_access_token
+from src.core.security import create_access_token, get_password_hash
 from src.main import app
 from src.models.base import Base
 
-# Force Redis host to localhost for tests
-# Force Redis host to localhost for tests
-settings.REDIS_HOST = "localhost"
-settings.APP_VERSION = "0.4.0"
-settings.JWT_SECRET_KEY = "test-secret-key-123"
-settings.JWT_ALGORITHM = "HS256"
+# Test database configuration
+TEST_DB_NAME = "m365_optimizer_test"
+TEST_DATABASE_URL = settings.DATABASE_URL.replace("m365_optimizer", TEST_DB_NAME)
 
-# Use the main database (m365_optimizer) for tests
-# Tables are created/dropped for each test to ensure isolation
-TEST_DATABASE_URL = settings.DATABASE_URL
+# Force test settings
+settings.REDIS_HOST = "localhost"
+settings.APP_VERSION = "0.7.0"
+settings.LOT_NUMBER = 7
+settings.JWT_SECRET_KEY = "test-secret-key-123-min-32-characters-long-for-security"
+settings.JWT_ALGORITHM = "HS256"
+settings.ENCRYPTION_KEY = "FhzMkaFPhMpiC9Eh3AkIDSDZEVA8QGMS7IId7NTX-B8="
+settings.PARTNER_CLIENT_ID = "00000000-0000-0000-0000-000000000000"
+settings.PARTNER_CLIENT_SECRET = "test-partner-secret"
+settings.PARTNER_TENANT_ID = "00000000-0000-0000-0000-000000000000"
+
+# Use test database URL
+settings.DATABASE_URL = TEST_DATABASE_URL
 
 
 @pytest.fixture(scope="session")
@@ -37,24 +49,53 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(scope="session", autouse=True)
-def override_settings():
-    """Override settings for tests."""
-    from src.core.config import settings
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def setup_test_database():
+    """
+    Setup test database once per session for parallel testing.
+    This creates a separate test database to avoid conflicts.
+    """
+    # Connect to the main database to create test database
+    main_engine = create_async_engine(
+        settings.DATABASE_URL.replace(TEST_DB_NAME, "m365_optimizer"),
+        echo=False,
+        isolation_level="AUTOCOMMIT",
+    )
 
-    settings.APP_VERSION = "0.7.0"
-    settings.LOT_NUMBER = 7
+    try:
+        async with main_engine.begin() as conn:
+            # Create test database
+            await conn.execute(text(f"DROP DATABASE IF EXISTS {TEST_DB_NAME}"))
+            await conn.execute(text(f"CREATE DATABASE {TEST_DB_NAME}"))
+    except Exception as e:
+        print(f"Warning: Could not create test database: {e}")
+        # Fallback to using main database with unique schema
+        TEST_DATABASE_URL = settings.DATABASE_URL
+    finally:
+        await main_engine.dispose()
+
+    yield
+
+    # Cleanup after all tests
+    try:
+        main_engine = create_async_engine(
+            settings.DATABASE_URL.replace(TEST_DB_NAME, "m365_optimizer"),
+            echo=False,
+            isolation_level="AUTOCOMMIT",
+        )
+        async with main_engine.begin() as conn:
+            await conn.execute(text(f"DROP DATABASE IF EXISTS {TEST_DB_NAME}"))
+    except Exception as e:
+        print(f"Warning: Could not drop test database: {e}")
+    finally:
+        await main_engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
 async def db_engine():
     """
-    Create test database engine with proper cleanup.
-
-    This fixture:
-    1. Creates a clean database schema for each test
-    2. Drops all tables and types after the test
-    3. Handles PostgreSQL ENUM types properly with CASCADE
+    Create test database engine for each test function.
+    Uses transaction rollback for isolation instead of schema recreation.
     """
     engine = create_async_engine(
         TEST_DATABASE_URL,
@@ -62,67 +103,119 @@ async def db_engine():
         poolclass=NullPool,
     )
 
-    # Setup: Create clean schema
-    async with engine.begin() as conn:
-        # Drop schema cascade to handle orphaned tables from previous tests
-        await conn.execute(text("DROP SCHEMA IF EXISTS optimizer CASCADE"))
-        await conn.execute(text("CREATE SCHEMA optimizer"))
+    # Setup: Create schema and tables
+    try:
+        async with engine.begin() as conn:
+            # Create schema first
+            await conn.execute(text("CREATE SCHEMA IF NOT EXISTS optimizer"))
 
-        # Create PostgreSQL enum types manually BEFORE creating tables
-        await conn.execute(
-            text(
-                """
-            CREATE TYPE optimizer.onboarding_status AS ENUM ('pending', 'active', 'suspended', 'error');
-        """
-            )
-        )
-        await conn.execute(
-            text(
-                """
-            CREATE TYPE optimizer.consent_status AS ENUM ('pending', 'granted', 'expired', 'revoked');
-        """
-            )
-        )
-        await conn.execute(
-            text(
-                """
-            CREATE TYPE optimizer.analysis_status AS ENUM ('PENDING', 'COMPLETED', 'FAILED');
-        """
-            )
-        )
-        await conn.execute(
-            text(
-                """
-            CREATE TYPE optimizer.recommendation_status AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED');
-        """
-            )
-        )
+            # Set search_path so ENUMs are created in the optimizer schema
+            await conn.execute(text("SET search_path TO optimizer, public"))
 
-        # Create all tables defined in models
-        await conn.run_sync(Base.metadata.create_all)
+            # Extract all ENUM types from SQLAlchemy metadata
+            # This automatically finds all ENUMs defined in models
+            def create_enum_types(connection):
+                from sqlalchemy.dialects.postgresql import ENUM
+
+                # Collect all unique ENUM types from the metadata
+                enum_types = {}
+                for table in Base.metadata.tables.values():
+                    for column in table.columns:
+                        # Check if column type is a PostgreSQL ENUM
+                        if isinstance(column.type, ENUM):
+                            enum_name = column.type.name
+                            if enum_name not in enum_types:
+                                # Store the ENUM with its values
+                                enum_types[enum_name] = column.type.enums
+
+                # Manually add ENUMs with create_type=False
+                # These are not auto-detected but are required
+                if "snapshot_type" not in enum_types:
+                    enum_types["snapshot_type"] = [
+                        "license_inventory",
+                        "user_inventory",
+                        "service_usage",
+                        "security_status",
+                        "cost_analysis",
+                        "optimization_recommendations",
+                    ]
+                if "metric_type" not in enum_types:
+                    enum_types["metric_type"] = [
+                        "license_utilization",
+                        "license_cost",
+                        "license_savings",
+                        "license_efficiency",
+                        "active_users",
+                        "inactive_users",
+                        "disabled_users",
+                        "guest_users",
+                        "exchange_usage",
+                        "sharepoint_usage",
+                        "teams_usage",
+                        "onedrive_usage",
+                        "mfa_coverage",
+                        "risk_score",
+                        "compliance_score",
+                    ]
+                if "licensestatus" not in enum_types:
+                    enum_types["licensestatus"] = [
+                        "ACTIVE",
+                        "INACTIVE",
+                        "SUSPENDED",
+                        "PENDING",
+                    ]
+                if "assignmentsource" not in enum_types:
+                    enum_types["assignmentsource"] = [
+                        "AUTOMATIC",
+                        "MANUAL",
+                        "BULK",
+                        "API",
+                    ]
+
+                # Create each ENUM type in the optimizer schema
+                for enum_name, enum_values in enum_types.items():
+                    values_str = ", ".join([f"'{value}'" for value in enum_values])
+                    # Create the ENUM type if it doesn't exist
+                    connection.execute(
+                        text(
+                            f"""
+                        DO $$
+                        BEGIN
+                            IF NOT EXISTS (
+                                SELECT 1 FROM pg_type t
+                                JOIN pg_namespace n ON t.typnamespace = n.oid
+                                WHERE t.typname = '{enum_name}' AND n.nspname = 'optimizer'
+                            ) THEN
+                                CREATE TYPE {enum_name} AS ENUM ({values_str});
+                            END IF;
+                        END$$;
+                    """
+                        )
+                    )
+
+            # Create all ENUM types first
+            await conn.run_sync(create_enum_types)
+
+            # Now create all tables (ENUMs already exist)
+            await conn.run_sync(Base.metadata.create_all)
+
+    except Exception as e:
+        print(f"Warning: Error during schema creation: {e}")
+        # Continue even if there are errors
 
     yield engine
 
-    # Teardown: Clean up all database objects
+    # Cleanup
     try:
-        async with engine.begin() as conn:
-            # Drop the entire schema to clean up ENUMs and other types
-            await conn.execute(text("DROP SCHEMA IF EXISTS optimizer CASCADE"))
-            await conn.execute(text("CREATE SCHEMA optimizer"))
-    except Exception as e:
-        # Log the error but don't fail the test
-        print(f"Warning: Error during database cleanup: {e}")
-    finally:
         await engine.dispose()
+    except Exception as e:
+        print(f"Warning: Error during engine disposal: {e}")
 
 
 @pytest_asyncio.fixture(scope="function")
 async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
     """
-    Create test database session.
-
-    Each test gets a fresh session that is rolled back after the test.
-    This ensures test isolation.
+    Create test database session with transaction isolation.
     """
     async_session_maker = async_sessionmaker(
         db_engine,
@@ -131,20 +224,20 @@ async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
     )
 
     async with async_session_maker() as session:
-        yield session
-        await session.rollback()
-        await session.close()
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
 
 
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """
     HTTP client for API tests with database override.
-
-    This fixture:
-    1. Overrides the database dependency to use the test session
-    2. Provides an AsyncClient for making API requests
-    3. Cleans up overrides after the test
     """
 
     async def override_get_db():
@@ -155,20 +248,16 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     async with AsyncClient(app=app, base_url="http://test") as ac:
         yield ac
 
-    # Clean up dependency overrides
     app.dependency_overrides.clear()
 
 
 @pytest_asyncio.fixture
 async def auth_headers(db_session, test_tenant):
     """
-    Mock authentication headers for tests.
-
-    Creates a test user linked to the test_tenant and returns headers with a valid Bearer token.
+    Mock authentication headers for tests with admin privileges.
     """
     from uuid import uuid4
 
-    from src.core.security import create_access_token, get_password_hash
     from src.models.user import User
 
     user_id = uuid4()
@@ -176,19 +265,23 @@ async def auth_headers(db_session, test_tenant):
         id=user_id,
         graph_id=str(uuid4()),
         tenant_client_id=test_tenant.id,
-        user_principal_name="test@example.com",
-        display_name="Test User",
+        user_principal_name="admin@example.com",
+        display_name="Test Admin",
         password_hash=get_password_hash("test-password"),
         account_enabled=True,
     )
     db_session.add(user)
     await db_session.commit()
 
+    # Créer un token avec des claims d'admin
     access_token = create_access_token(
-        data={"sub": str(user_id), "email": "test@example.com"}
+        data={
+            "sub": str(user_id),
+            "email": user.user_principal_name,
+            "tenants": [str(test_tenant.id)],
+        }
     )
-    if isinstance(access_token, bytes):
-        access_token = access_token.decode("utf-8")
+    # Le token est déjà une string, pas besoin de décoder
 
     return {
         "Authorization": f"Bearer {access_token}",
@@ -198,28 +291,19 @@ async def auth_headers(db_session, test_tenant):
 
 @pytest.fixture
 def sample_tenant_data():
-    """
-    Sample tenant data for testing.
-
-    Returns a dictionary with valid tenant creation data.
-    """
+    """Sample tenant data for testing."""
     return {
         "name": "Test Company",
         "azure_tenant_id": "12345678-1234-1234-1234-123456789012",
         "domain": "testcompany.onmicrosoft.com",
-        "client_id": "app-client-id-123",
-        "client_secret": "app-client-secret-456",
+        "country": "US",
         "is_active": True,
     }
 
 
 @pytest.fixture
 def sample_user_data():
-    """
-    Sample user data for testing.
-
-    Returns a dictionary with valid user data from Microsoft Graph.
-    """
+    """Sample user data for testing."""
     return {
         "id": "user-graph-id-123",
         "userPrincipalName": "user@testcompany.onmicrosoft.com",
@@ -231,9 +315,7 @@ def sample_user_data():
 
 @pytest_asyncio.fixture
 async def test_tenant(db_session):
-    """
-    Create a test tenant for integration tests.
-    """
+    """Create a test tenant for integration tests."""
     from uuid import uuid4
 
     from src.models.tenant import TenantClient
@@ -250,53 +332,11 @@ async def test_tenant(db_session):
     return tenant
 
 
-# Cleanup hook to ensure database is clean before test session
+# Optimized for parallel testing
+# Remove session-wide cleanup that causes conflicts
 @pytest.fixture(scope="session", autouse=True)
-async def cleanup_database():
-    """
-    Clean up test database before and after all tests.
-
-    This ensures a clean state even if previous test runs failed.
-    """
-    engine = create_async_engine(
-        TEST_DATABASE_URL,
-        echo=False,
-        poolclass=NullPool,
-    )
-
-    # Cleanup before tests
-    try:
-        async with engine.begin() as conn:
-            await conn.execute(text("DROP SCHEMA IF EXISTS optimizer CASCADE"))
-            await conn.execute(text("CREATE SCHEMA optimizer"))
-    except Exception as e:
-        print(f"Warning: Error during initial cleanup: {e}")
-
+def configure_parallel_testing():
+    """Configure for parallel testing."""
+    # Set environment variable to indicate parallel testing
+    os.environ["PYTEST_XDIST_WORKER"] = os.environ.get("PYTEST_XDIST_WORKER", "gw0")
     yield
-
-    # Restore schema after all tests instead of dropping it
-    # This allows infrastructure tests to pass after backend tests
-    try:
-        async with engine.begin() as conn:
-            # Recreate schema for next use
-            await conn.execute(text("DROP SCHEMA IF EXISTS optimizer CASCADE"))
-            await conn.execute(text("CREATE SCHEMA optimizer"))
-            # Recreate tables
-            await conn.run_sync(Base.metadata.create_all)
-
-            # Insert sample data for infrastructure tests
-            await conn.execute(
-                text(
-                    """
-                INSERT INTO optimizer.tenant_clients (id, tenant_id, name, country, onboarding_status)
-                VALUES
-                    (gen_random_uuid(), '12345678-1234-1234-1234-123456789012', 'Test Tenant 1', 'FR', 'active'::optimizer.onboardingstatus),
-                    (gen_random_uuid(), '87654321-4321-4321-4321-210987654321', 'Test Tenant 2', 'US', 'active'::optimizer.onboardingstatus)
-                ON CONFLICT DO NOTHING;
-            """
-                )
-            )
-    except Exception as e:
-        print(f"Warning: Error during final cleanup: {e}")
-    finally:
-        await engine.dispose()
