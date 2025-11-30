@@ -136,10 +136,14 @@ class LicenseAssignment(Base, UUIDMixin, TimestampMixin):
         DateTime(timezone=True), nullable=True
     )
     status: Mapped[LicenseStatus] = mapped_column(
-        Enum(LicenseStatus), default=LicenseStatus.ACTIVE, nullable=False
+        Enum(LicenseStatus, name="license_status", schema="optimizer", native_enum=True, values_callable=lambda x: [e.value for e in x]), 
+        default=LicenseStatus.ACTIVE, 
+        nullable=False
     )
     source: Mapped[AssignmentSource] = mapped_column(
-        Enum(AssignmentSource), default=AssignmentSource.MANUAL, nullable=False
+        Enum(AssignmentSource, name="assignment_source", schema="optimizer", native_enum=True, values_callable=lambda x: [e.value for e in x]), 
+        default=AssignmentSource.MANUAL, 
+        nullable=False
     )
 
     # Relationships

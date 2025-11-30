@@ -75,7 +75,7 @@ class SkuMappingService:
             return None
 
         product_id, sku_id = partner_sku_id.split(":")
-        return await self.product_repo.get_by_product_and_sku(product_id, sku_id)
+        return await self.product_repo.get_by_product_sku(product_id, sku_id)
 
     async def map_graph_to_partner_center(
         self, graph_sku_ids: List[str]

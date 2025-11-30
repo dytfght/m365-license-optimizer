@@ -45,10 +45,23 @@ class TestSkuMappingAPI:
         return user
 
     @pytest.fixture
-    async def auth_headers(self, admin_user: User, client: AsyncClient) -> dict:
+    async def auth_headers(self, admin_user: User, client: AsyncClient, db_session) -> dict:
         """Get authentication headers for admin user"""
-        # Mock authentication - in real tests, you'd get a proper token
-        return {"Authorization": f"Bearer test-token-{admin_user.id}"}
+        from src.core.security import create_access_token
+        
+        # Create a real JWT token for the admin user
+        access_token = create_access_token(
+            data={
+                "sub": str(admin_user.id),
+                "email": admin_user.user_principal_name,
+                "tenants": [str(admin_user.tenant_client_id)],
+            }
+        )
+        
+        return {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
 
     @pytest.fixture
     async def sample_products(self, db_session: AsyncSession) -> list:

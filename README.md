@@ -98,6 +98,7 @@ m365-license-optimizer/
 | **5** | Partner Center Integration | ✅ Terminé |
 | **6** | Optimisation des licences | ✅ Terminé |
 | **7** | Génération de rapports PDF/Excel | ✅ Terminé |
+| **8** | Partner Center Mapping & Add-ons | ✅ Terminé |
 
 ### 🎯 Fonctionnalités principales
 
@@ -139,6 +140,20 @@ GET  /api/v1/reports/{id}                      # Détails d'un rapport
 GET  /api/v1/reports/{id}/download             # URL de téléchargement
 DELETE /api/v1/reports/{id}                    # Supprimer un rapport
 POST /api/v1/reports/cleanup                   # Nettoyer rapports expirés
+```
+
+#### SKU Mapping & Add-ons (Lot 8)
+```
+GET    /api/v1/admin/sku-mapping/summary                          # Statistiques mappings
+POST   /api/v1/admin/sku-mapping/sync/products                    # Sync produits Partner Center
+POST   /api/v1/admin/sku-mapping/sync/compatibility               # Sync règles compatibilité
+GET    /api/v1/admin/sku-mapping/compatible-addons/{base_sku_id}  # Add-ons compatibles
+POST   /api/v1/admin/sku-mapping/validate-addon                   # Valider compatibilité
+GET    /api/v1/admin/sku-mapping/compatibility-mappings           # Liste mappings
+POST   /api/v1/admin/sku-mapping/compatibility-mappings           # Créer mapping
+PUT    /api/v1/admin/sku-mapping/compatibility-mappings/{id}      # Modifier mapping
+DELETE /api/v1/admin/sku-mapping/compatibility-mappings/{id}      # Supprimer mapping
+GET    /api/v1/admin/sku-mapping/recommendations/{base_sku_id}    # Recommandations add-ons
 ```
 
 ## 🧪 Tests
@@ -186,7 +201,8 @@ Les validations détaillées par lot sont disponibles dans les fichiers :
 - [LOT4-VALIDATION.md](./LOT4-VALIDATION.md) - Microsoft Graph
 - [LOT5-VALIDATION.md](./LOT5-VALIDATION.md) - Partner Center
 - [LOT6-VALIDATION.md](./LOT6-VALIDATION.md) - License Optimization
-- [LOT7-VALIDATION-FINAL.md](./LOT7-VALIDATION-FINAL.md) - Report Generation
+- [LOT7-VALIDATION.md](./LOT7-VALIDATION.md) - Report Generation
+- [LOT8-VALIDATION.md](./LOT8-VALIDATION.md) - Partner Center Mapping & Add-ons
 
 ## 🤝 Contribution
 

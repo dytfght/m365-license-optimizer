@@ -75,7 +75,7 @@ class TestSkuMappingService:
     @pytest.mark.asyncio
     async def test_get_partner_center_sku_found(self, sku_service, mock_product):
         """Test getting Partner Center SKU for existing Graph SKU"""
-        sku_service.product_repo.get_by_product_and_sku = AsyncMock(
+        sku_service.product_repo.get_by_product_sku = AsyncMock(
             return_value=mock_product
         )
 
@@ -83,7 +83,7 @@ class TestSkuMappingService:
 
         assert result is not None
         assert result == mock_product
-        sku_service.product_repo.get_by_product_and_sku.assert_called_once_with(
+        sku_service.product_repo.get_by_product_sku.assert_called_once_with(
             "CFQ7TTC0LF8S", "0001"
         )
 
@@ -99,7 +99,7 @@ class TestSkuMappingService:
     @pytest.mark.asyncio
     async def test_map_graph_to_partner_center(self, sku_service, mock_product):
         """Test mapping multiple Graph SKUs to Partner Center"""
-        sku_service.product_repo.get_by_product_and_sku = AsyncMock(
+        sku_service.product_repo.get_by_product_sku = AsyncMock(
             return_value=mock_product
         )
 

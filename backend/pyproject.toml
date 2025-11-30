@@ -1,7 +1,7 @@
 [tool.black]
 line-length = 88
 target-version = ['py312']
-include = '\.pyi?$'
+include = '\\.pyi?$'
 
 [tool.isort]
 profile = "black"
@@ -42,11 +42,31 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q"
-testpaths = [
-    "tests",
-]
+pythonpath = ["."]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
 asyncio_mode = "auto"
-pythonpath = [
-    "src"
+asyncio_default_fixture_loop_scope = "function"  # Comportement AUTO de pytest.ini
+
+
+# Options d'exécution (comportement identique à pytest.ini)
+addopts = [
+    "-v",                           # Mode verbose
+    "--tb=short",                   # Traceback court
+    "--strict-markers",             # Strict sur les markers
+    "--cov=src",                    # Coverage du répertoire src
+    "--cov-report=term-missing",    # Afficher coverage dans terminal
+    "--cov-report=html",            # Générer rapport HTML
+    "--cov-branch",                 # Branch coverage
+    # "-n auto",                    # Parallélisation désactivée (problèmes de concurrence)
+    # "--dist=loadfile",
+]
+
+# Markers personnalisés
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow running tests",
 ]

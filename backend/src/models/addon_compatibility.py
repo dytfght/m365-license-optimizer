@@ -25,6 +25,9 @@ class AddonCompatibility(Base, UUIDMixin, TimestampMixin):
         Index("ix_addon_compatibility_addon_sku_id", "addon_sku_id"),
         Index("ix_addon_compatibility_base_sku_id", "base_sku_id"),
         Index("ix_addon_compatibility_service_type", "service_type"),
+        Index("ix_addon_compatibility_addon_category", "addon_category"),
+        Index("ix_addon_compatibility_is_active", "is_active"),
+        Index("ix_addon_compatibility_created_at", "created_at"),
         {"schema": "optimizer"},
     )
 

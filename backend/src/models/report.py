@@ -34,7 +34,7 @@ class Report(Base, UUIDMixin):
 
     # Report metadata
     report_type: Mapped[str] = mapped_column(
-        String(10), nullable=False, comment="PDF or EXCEL"
+        String(10), nullable=False, comment="PDF or EXCEL", index=True
     )
     file_name: Mapped[str] = mapped_column(
         String(255), nullable=False, comment="Original filename"
@@ -55,10 +55,13 @@ class Report(Base, UUIDMixin):
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
+    )
+    updated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
     expires_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True, comment="TTL for cleanup"
+        DateTime(timezone=True), nullable=True, comment="TTL for cleanup", index=True
     )
 
     # Relations

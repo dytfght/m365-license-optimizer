@@ -54,7 +54,7 @@ async def get_current_user(
 
         # Get user from database
         auth_service = AuthService(db)
-        user = await auth_service.get_user_by_id(UUID(user_id))
+        user = await auth_service.user_repo.get_by_id(UUID(user_id))
 
         if user is None:
             raise credentials_exception

@@ -78,8 +78,9 @@ class AddonCompatibilityRepository(BaseRepository[AddonCompatibility]):
                 and_(
                     self.model.addon_sku_id == addon_sku_id,
                     self.model.base_sku_id == base_sku_id,
+                    self.model.is_active.is_(True)  # Only active mappings
                 )
-            )
+            ).limit(1)
         )
         return result.scalar_one_or_none()
 

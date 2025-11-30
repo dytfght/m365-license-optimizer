@@ -254,6 +254,11 @@ mappings = await scalars.all()  # ❌ Error
 return list(result.scalars().all())  # ✅ Fixed
 ```
 
+### 5. Unification API Graph
+- **Problème** : Duplication de code entre `GraphService` et `GraphClient`
+- **Solution** : Refactoring pour utiliser `GraphClient` comme unique point d'entrée
+- **Statut** : ✅ Résolu
+
 ---
 
 ## 📚 Documentation

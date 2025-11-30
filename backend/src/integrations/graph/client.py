@@ -56,18 +56,23 @@ class GraphClient:
         reraise=True,
     )
     async def _make_request(
-        self, method: str, url: str, **kwargs: Any
-    ) -> dict[str, Any]:
+        self,
+        method: str,
+        url: str,
+        accept_csv: bool = False,
+        **kwargs: Any
+    ) -> Any:
         """
         Make HTTP request to Graph API with retry on throttling.
 
         Args:
             method: HTTP method (GET, POST, etc.)
             url: Full URL or path (relative to base_url)
+            accept_csv: Whether to accept CSV response
             **kwargs: Additional arguments for aiohttp request
 
         Returns:
-            Response JSON
+            Response JSON or Text (if accept_csv=True)
 
         Raises:
             GraphThrottlingError: On HTTP 429 (will trigger retry)
@@ -78,6 +83,10 @@ class GraphClient:
 
         session = await self._get_session()
         headers = self._get_headers()
+
+        if accept_csv:
+            headers["Accept"] = "text/csv"
+
         headers.update(kwargs.pop("headers", {}))
 
         try:
@@ -86,55 +95,68 @@ class GraphClient:
                 if resp.status == 429:
                     retry_after = int(resp.headers.get("Retry-After", 2))
                     logger.warning(
-                        "graph_api_throttled", url=url, retry_after=retry_after
+                        "graph_api_throttled",
+                        url=url,
+                        retry_after=retry_after
                     )
                     raise GraphThrottlingError(
                         f"Rate limit exceeded, retry after {retry_after}s",
-                        retry_after=retry_after,
+                        retry_after=retry_after
                     )
 
                 # Handle other errors
                 if resp.status >= 400:
-                    error_data = (
-                        await resp.json()
-                        if resp.content_type == "application/json"
-                        else {}
-                    )
-                    error_msg = error_data.get("error", {}).get(
-                        "message", "Unknown error"
-                    )
+                    # Try to parse error details if JSON, otherwise use status text
+                    error_msg = f"HTTP {resp.status}"
+                    error_data = {}
+
+                    if resp.content_type == "application/json":
+                        try:
+                            error_data = await resp.json()
+                            error_msg = error_data.get("error", {}).get("message", error_msg)
+                        except Exception:
+                            pass
+
+                    # Special handling for 404 to allow caller to handle it
+                    if resp.status == 404:
+                         logger.warning("graph_api_not_found", url=url)
+                         # We still raise, but with specific message/code
 
                     logger.error(
                         "graph_api_error",
                         url=url,
                         status_code=resp.status,
-                        error=error_msg,
+                        error=error_msg
                     )
 
                     raise GraphAPIError(
                         f"Graph API error: {error_msg}",
                         status_code=resp.status,
-                        response_data=error_data,
+                        response_data=error_data
                     )
 
                 # Success
-                data = await resp.json()
-                return data  # type: ignore[no-any-return]
+                if accept_csv:
+                    return await resp.text()
+                return await resp.json()
 
         except aiohttp.ClientError as e:
             logger.error("graph_api_request_failed", url=url, error=str(e))
             raise GraphAPIError(f"Network error: {str(e)}")
 
-    async def get(self, path: str, params: Optional[dict] = None) -> dict:
+    async def get(self, path: str, params: dict = None, accept_csv: bool = False) -> Any:
         """GET request to Graph API"""
-        return await self._make_request("GET", path, params=params)
+        return await self._make_request("GET", path, params=params, accept_csv=accept_csv)
 
-    async def post(self, path: str, json_data: Optional[dict] = None) -> dict:
+    async def post(self, path: str, json_data: dict = None) -> dict:
         """POST request to Graph API"""
         return await self._make_request("POST", path, json=json_data)
 
     async def get_paginated(
-        self, path: str, params: Optional[dict] = None, max_pages: Optional[int] = None
+        self,
+        path: str,
+        params: dict = None,
+        max_pages: int = None
     ) -> list[dict]:
         """
         Get all items from paginated endpoint.
@@ -166,7 +188,7 @@ class GraphClient:
                     "graph_pagination_max_pages_reached",
                     path=path,
                     pages=page_count,
-                    items=len(items),
+                    items=len(items)
                 )
                 break
 
@@ -185,14 +207,14 @@ class GraphClient:
                 page=page_count,
                 items_in_page=len(page_items),
                 total_items=len(items),
-                has_next=bool(url),
+                has_next=bool(url)
             )
 
         logger.info(
             "graph_pagination_completed",
             path=path,
             total_pages=page_count,
-            total_items=len(items),
+            total_items=len(items)
         )
 
         return items
@@ -213,8 +235,8 @@ class GraphClient:
     # GR03: Get users with licenses
     async def get_users(
         self,
-        select_fields: Optional[list[str]] = None,
-        filter_query: Optional[str] = None,
+        select_fields: list[str] = None,
+        filter_query: str = None
     ) -> list[dict]:
         """
         Get all users from the tenant.
@@ -245,9 +267,7 @@ class GraphClient:
         if filter_query:
             params["$filter"] = filter_query
 
-        logger.info(
-            "graph_fetching_users", select_fields=select_fields, filter=filter_query
-        )
+        logger.info("graph_fetching_users", select_fields=select_fields, filter=filter_query)
         users = await self.get_paginated("/users", params=params)
         logger.info("graph_users_fetched", count=len(users))
 
@@ -273,10 +293,10 @@ class GraphClient:
         logger.info(
             "graph_organization_fetched",
             tenant_id=org.get("id"),
-            display_name=org.get("displayName"),
+            display_name=org.get("displayName")
         )
 
-        return org  # type: ignore[no-any-return]
+        return org
 
     async def get_user_member_of(self, user_id: str) -> list[dict]:
         """
@@ -292,6 +312,41 @@ class GraphClient:
             "$select": "id,displayName,groupTypes",
         }
 
-        groups = await self.get_paginated(f"/users/{user_id}/memberOf", params=params)
+        groups = await self.get_paginated(
+            f"/users/{user_id}/memberOf",
+            params=params
+        )
 
         return groups
+
+    async def get_user_license_details(self, user_id: str) -> list[dict]:
+        """
+        Get detailed license information for a user.
+
+        Args:
+            user_id: User ID (Graph ID or UPN)
+
+        Returns:
+            List of license details
+        """
+        try:
+            data = await self.get(f"/users/{user_id}/licenseDetails")
+            return data.get("value", [])
+        except GraphAPIError as e:
+            if e.status_code == 404:
+                return []
+            raise
+
+    async def get_usage_report(self, report_endpoint: str, period: str = "D28") -> str:
+        """
+        Get usage report as CSV string.
+
+        Args:
+            report_endpoint: Report endpoint (e.g. 'getEmailActivityUserDetail')
+            period: Report period (D7, D28, D90, D180)
+
+        Returns:
+            CSV content string
+        """
+        url = f"/reports/{report_endpoint}(period='{period}')"
+        return await self.get(url, accept_csv=True)

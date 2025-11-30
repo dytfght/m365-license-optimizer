@@ -12,6 +12,7 @@ from ..models.addon_compatibility import AddonCompatibility
 from ..models.microsoft_product import MicrosoftProduct
 from ..repositories.addon_compatibility_repository import AddonCompatibilityRepository
 from ..repositories.product_repository import ProductRepository
+from ..schemas.sku_mapping import AddonRecommendationResponse
 
 logger = structlog.get_logger(__name__)
 
@@ -299,7 +300,7 @@ class PartnerCenterAddonsService:
         for product in products:
             for sku in product.get("skus", []):
                 # Check if product already exists
-                existing_product = await self.product_repo.get_by_product_and_sku(
+                existing_product = await self.product_repo.get_by_product_sku(
                     product["id"], sku["id"]
                 )
 
@@ -359,7 +360,7 @@ class PartnerCenterAddonsService:
                             "service_type": rule["serviceType"],
                             "addon_category": rule["addonCategory"],
                             "min_quantity": rule["minQuantity"],
-                            "max_quantity": rule.get("maxQuantity"),
+                            "max_quantity": rule.get("maxQuantity") or None,
                             "quantity_multiplier": rule["quantityMultiplier"],
                             "requires_domain_validation": rule[
                                 "requiresDomainValidation"
@@ -405,7 +406,7 @@ class PartnerCenterAddonsService:
                 continue
 
             # Get product information
-            product = await self.product_repo.get_by_product_and_sku(
+            product = await self.product_repo.get_by_product_sku(
                 addon.addon_product_id, addon.addon_sku_id
             )
 
@@ -419,24 +420,24 @@ class PartnerCenterAddonsService:
 
             if score > 0.5:  # Only recommend if score is significant
                 recommendations.append(
-                    {
-                        "addon_sku_id": addon.addon_sku_id,
-                        "addon_name": product.sku_title,
-                        "addon_category": addon.addon_category,
-                        "service_type": addon.service_type,
-                        "compatibility_score": score,
-                        "min_quantity": addon.min_quantity,
-                        "max_quantity": addon.max_quantity,
-                        "reason": self._get_recommendation_reason(
+                    AddonRecommendationResponse(
+                        addon_sku_id=addon.addon_sku_id,
+                        addon_name=product.sku_title,
+                        addon_category=addon.addon_category,
+                        service_type=addon.service_type,
+                        compatibility_score=score,
+                        min_quantity=addon.min_quantity,
+                        max_quantity=addon.max_quantity,
+                        reason=self._get_recommendation_reason(
                             addon.addon_category, tenant_size
                         ),
-                    }
+                    )
                 )
 
         # Sort by score descending
-        recommendations.sort(key=lambda x: x["compatibility_score"], reverse=True)
+        recommendations.sort(key=lambda x: x.compatibility_score, reverse=True)
 
-        return recommendations[:5]  # Return top 5 recommendations
+        return [rec.model_dump(exclude_none=True) for rec in recommendations[:5]]  # Return top 5 recommendations as dicts
 
     async def _calculate_recommendation_score(
         self, addon: AddonCompatibility, product: MicrosoftProduct, tenant_size: str
