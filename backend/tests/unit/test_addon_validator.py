@@ -77,6 +77,9 @@ class TestAddonValidator:
         validator.addon_repo.get_specific_mapping.return_value = (
             mock_compatibility_mapping
         )
+        # Mock the async methods that are called internally
+        validator._validate_business_rules = AsyncMock(return_value=(True, []))
+        validator._validate_service_limits = AsyncMock(return_value=(True, []))
 
         is_valid, errors = await validator.validate_addon_compatibility(
             "0001", "0001", 5, "12345678-1234-1234-1234-123456789012", "contoso.com"
@@ -128,6 +131,9 @@ class TestAddonValidator:
         validator.addon_repo.get_specific_mapping = AsyncMock(
             return_value=mock_compatibility_mapping
         )
+        # Mock the async methods
+        validator._validate_business_rules = AsyncMock(return_value=(True, []))
+        validator._validate_service_limits = AsyncMock(return_value=(True, []))
 
         is_valid, errors = await validator.validate_addon_compatibility(
             "0001", "0001", 1
@@ -289,6 +295,9 @@ class TestAddonValidator:
         validator.addon_repo.get_specific_mapping = AsyncMock(
             return_value=mock_compatibility_mapping
         )
+        # Mock the async internal validation methods
+        validator._validate_business_rules = AsyncMock(return_value=(True, []))
+        validator._validate_service_limits = AsyncMock(return_value=(True, []))
 
         is_valid, errors = await validator.validate_addon_compatibility(
             "0001",
@@ -332,9 +341,11 @@ class TestAddonValidator:
         self, validator, mock_compatibility_mapping
     ):
         """Test bulk validation of multiple add-ons"""
-        # Mock the validation methods to bypass complex checks
+        # Mock repository to return valid mapping for both requests
+        validator.addon_repo.get_specific_mapping.return_value = mock_compatibility_mapping
+        # Mock the async internal validation methods
         validator._validate_business_rules = AsyncMock(return_value=(True, []))
-        validator._validate_quantity_rules = AsyncMock(return_value=(True, []))
+        validator._validate_service_limits = AsyncMock(return_value=(True, []))
         
         addons = [
             {"sku_id": "0001", "quantity": 1},
@@ -346,7 +357,7 @@ class TestAddonValidator:
         )
 
         assert all_valid is True
-        assert len(results) == 2
+        assert len(results) == 0  # No errors means empty dict
 
     @pytest.mark.asyncio
     async def test_validate_bulk_addons_with_errors(
@@ -357,6 +368,9 @@ class TestAddonValidator:
         validator.addon_repo.get_specific_mapping = AsyncMock(
             side_effect=[mock_compatibility_mapping, None]
         )
+        # Mock async methods for the valid one
+        validator._validate_business_rules = AsyncMock(return_value=(True, []))
+        validator._validate_service_limits = AsyncMock(return_value=(True, []))
 
         addons = [
             {"sku_id": "0001", "quantity": 1},
@@ -368,6 +382,7 @@ class TestAddonValidator:
         assert all_valid is False
         assert len(results) == 1  # Only the invalid one should have errors
         assert "0002" in results
+        assert len(results["0002"]) > 0
 
     @pytest.mark.asyncio
     async def test_get_validation_requirements(

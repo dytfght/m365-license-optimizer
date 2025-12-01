@@ -216,3 +216,17 @@ docs/
 *.rej
 *~
 .*.swp
+# Caches Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Répertoires temporaires
+/logs/
+/backups/
+backend/reports/*.pdf
+backend/reports/*.xlsx

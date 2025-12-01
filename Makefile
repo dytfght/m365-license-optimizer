@@ -71,12 +71,6 @@ help:
 	@echo "  make test-coverage  - Run tests with coverage report"
 	@echo "  make validate-schema - Validate database schema consistency"
 	@echo ""
-	@echo "$(GREEN)LOT8 - SKU Mapping & Add-ons:$(NC)"
-	@echo "  make lot8-setup     - Setup LOT8 (SKU mapping and add-ons)"
-	@echo "  make lot8-seed      - Seed SKU mapping data"
-	@echo "  make lot8-test      - Test LOT8 functionality"
-	@echo "  make lot8-summary   - Show SKU mapping summary"
-	@echo ""
 	@echo "$(GREEN)Code Quality:$(NC)"
 	@echo "  make lint           - Run code linting"
 	@echo "  make format         - Format code"
@@ -528,41 +522,4 @@ check-env:
 check-venv: check-env
 	@if [ ! -d "$(VENV)" ]; then echo "$(RED)venv not found. Run 'make setup-backend'$(NC)"; exit 1; fi
 
-## lot8-setup: Setup LOT8 (SKU mapping and add-ons)
-lot8-setup: check-venv
-	@echo "$(BLUE)Setting up LOT8 (SKU mapping and add-ons)...$(NC)"
-	@echo "$(YELLOW)Running database migration...$(NC)"
-	@$(RUN_IN_VENV) alembic upgrade head'
-	@echo "$(YELLOW)Seeding SKU mapping data...$(NC)"
-	@cd $(BACKEND_DIR) && python ../scripts/seed_sku_mappings.py
-	@echo "$(GREEN)✓ LOT8 setup complete$(NC)"
 
-## lot8-seed: Seed SKU mapping data
-lot8-seed: check-venv
-	@echo "$(BLUE)Seeding SKU mapping data...$(NC)"
-	@cd $(BACKEND_DIR) && python ../scripts/seed_sku_mappings.py
-	@echo "$(GREEN)✓ SKU mapping data seeded$(NC)"
-
-## lot8-test: Test LOT8 functionality
-lot8-test: check-venv
-	@echo "$(BLUE)Testing LOT8 functionality...$(NC)"
-	@cd $(BACKEND_DIR) && python ../scripts/test_lot8_integration.py
-	@echo "$(GREEN)✓ LOT8 tests completed$(NC)"
-
-## lot8-summary: Show SKU mapping summary
-lot8-summary: check-venv
-	@echo "$(BLUE)Getting SKU mapping summary...$(NC)"
-	@cd $(BACKEND_DIR) && python -c "import asyncio; \
-from sqlalchemy.ext.asyncio import create_async_engine, sessionmaker; \
-from src.core.config import settings; \
-from src.services.sku_mapping_service import SkuMappingService; \
-async def main(): \
-    engine = create_async_engine(settings.DATABASE_URL, echo=False, future=True); \
-    async_session = sessionmaker(engine, class_=sessionmaker, expire_on_commit=False); \
-    async with async_session() as session: \
-        service = SkuMappingService(session); \
-        summary = await service.get_sku_mapping_summary(); \
-        print('SKU Mapping Summary:'); \
-        for key, value in summary.items(): \
-            print(f'  {key}: {value}'); \
-asyncio.run(main())"
