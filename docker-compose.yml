@@ -124,6 +124,23 @@ services:
     networks:
       - m365_network
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    container_name: m365_optimizer_frontend
+    restart: always
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    ports:
+      - '3000:3000'
+    depends_on:
+      - backend
+    networks:
+      - m365_network
+
 volumes:
   postgres_data:
     driver: local

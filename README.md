@@ -31,6 +31,8 @@ docker-compose ps
 ```
 
 Les services devraient être visibles sur :
+- Frontend : `http://localhost:3000`
+- Backend API : `http://localhost:8000`
 - PostgreSQL : `localhost:5432`
 - Redis : `localhost:6379`
 - PgAdmin : `http://localhost:5050`
@@ -66,12 +68,15 @@ open http://localhost:8000/docs  # Documentation OpenAPI
 ## 🏗️ Architecture
 
 ### Stack technique
+- **Frontend**: React 18 + Next.js 14 (Pages Router) + TypeScript
+- **Styling**: Tailwind CSS
+- **State/Data**: React Query + Context API
 - **Backend**: FastAPI 0.104.1 + Python 3.12
 - **Database**: PostgreSQL 15 + SQLAlchemy 2.0 (async)
 - **Cache**: Redis 7 + aioredis
 - **Auth**: JWT (HS256) + OAuth2 Password Flow
 - **Container**: Docker + Docker Compose
-- **Tests**: pytest (≥95% coverage)
+- **Tests**: pytest (backend), Jest (frontend)
 
 ### Structure du projet
 ```
@@ -81,6 +86,10 @@ m365-license-optimizer/
 │   ├── src/models/      # SQLAlchemy models
 │   ├── src/services/    # Business logic
 │   └── tests/           # Tests unitaires & intégration
+├── frontend/             # Frontend React/Next.js (Lot 9)
+│   ├── src/components/  # UI Components
+│   ├── src/pages/       # Routes
+│   └── src/services/    # API integration
 ├── docker/              # Configurations Docker
 ├── scripts/             # Scripts utilitaires
 └── docker-compose.yml   # Orchestration des services
