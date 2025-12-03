@@ -24,7 +24,6 @@ async def test_generate_pdf_report_success(
         analysis_date=datetime.utcnow(),
         summary={"total_users": 100, "potential_savings": 5000.0},
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -62,7 +61,6 @@ async def test_generate_excel_report_success(
         analysis_date=datetime.utcnow(),
         summary={"total_users": 100, "potential_savings": 5000.0},
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -131,7 +129,6 @@ async def test_list_analysis_reports(
         analysis_date=datetime.utcnow(),
         summary={"total_users": 100, "potential_savings": 5000.0},
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -181,7 +178,6 @@ async def test_list_tenant_reports(
         analysis_date=datetime.utcnow(),
         summary={"total_users": 100, "potential_savings": 5000.0},
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -224,7 +220,6 @@ async def test_list_tenant_reports_with_filter(
         analysis_date=datetime.utcnow(),
         summary={"total_users": 100, "potential_savings": 5000.0},
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -266,7 +261,6 @@ async def test_get_report_details(
         analysis_date=datetime.utcnow(),
         summary={"total_users": 100, "potential_savings": 5000.0},
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -325,7 +319,6 @@ async def test_download_report(
         analysis_date=datetime.utcnow(),
         summary={"total_users": 100, "potential_savings": 5000.0},
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -401,7 +394,6 @@ async def test_delete_report(
         analysis_date=datetime.utcnow(),
         summary={"total_users": 100, "potential_savings": 5000.0},
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -509,7 +501,6 @@ async def test_report_pagination(
         analysis_date=datetime.utcnow(),
         summary={"total_users": 100, "potential_savings": 5000.0},
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
     )
     db_session.add(analysis)
     await db_session.commit()

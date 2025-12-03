@@ -30,9 +30,6 @@ export const Navbar: React.FC = () => {
                             <Link href="/dashboard" className={`inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium ${router.pathname === '/dashboard' ? 'border-primary text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'}`}>
                                 {t('Dashboard')}
                             </Link>
-                            <Link href="/analyses" className={`inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium ${router.pathname.startsWith('/analyses') ? 'border-primary text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'}`}>
-                                {t('Analyses')}
-                            </Link>
                             <Link href="/admin/sku-mapping" className={`inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium ${router.pathname.startsWith('/admin') ? 'border-primary text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'}`}>
                                 {t('Admin')}
                             </Link>

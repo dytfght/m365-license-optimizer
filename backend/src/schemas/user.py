@@ -52,7 +52,7 @@ class UserResponse(UserBase):
     graph_id: str = Field(..., description="Microsoft Graph user ID")
     tenant_client_id: UUID = Field(..., description="Tenant client ID")
     created_at: datetime = Field(..., description="Creation timestamp")
-    updated_at: datetime = Field(..., description="Last update timestamp")
+    updated_at: datetime | None = Field(None, description="Last update timestamp")
 
     class Config:
         from_attributes = True

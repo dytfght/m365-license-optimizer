@@ -6,13 +6,16 @@ import { Navbar } from '../../components/Navbar';
 import { tenantService } from '../../services/tenantService';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { ErrorMessage } from '../../components/ErrorMessage';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, AlertCircle } from 'lucide-react';
+import { useRequireAuth } from '../../hooks/useRequireAuth';
 
 const TenantDetailPage: React.FC = () => {
     const router = useRouter();
     const { id } = router.query;
     const { t } = useTranslation();
+    const { user, loading: authLoading } = useRequireAuth();
     const [syncMessage, setSyncMessage] = useState<string | null>(null);
+    const [syncError, setSyncError] = useState<string | null>(null);
 
     const { data: tenant, isLoading, error } = useQuery({
         queryKey: ['tenant', id],
@@ -22,21 +25,43 @@ const TenantDetailPage: React.FC = () => {
 
     const syncUsersMutation = useMutation({
         mutationFn: () => tenantService.syncUsers(id as string),
-        onSuccess: () => setSyncMessage('Users synced successfully')
+        onSuccess: () => {
+            setSyncMessage(t('Users synced successfully'));
+            setSyncError(null);
+        },
+        onError: (error: Error) => {
+            setSyncError(t('Failed to sync users'));
+            setSyncMessage(null);
+        }
     });
 
     const syncLicensesMutation = useMutation({
         mutationFn: () => tenantService.syncLicenses(id as string),
-        onSuccess: () => setSyncMessage('Licenses synced successfully')
+        onSuccess: () => {
+            setSyncMessage(t('Licenses synced successfully'));
+            setSyncError(null);
+        },
+        onError: (error: Error) => {
+            setSyncError(t('Failed to sync licenses'));
+            setSyncMessage(null);
+        }
     });
 
     const syncUsageMutation = useMutation({
         mutationFn: () => tenantService.syncUsage(id as string),
-        onSuccess: () => setSyncMessage('Usage synced successfully')
+        onSuccess: () => {
+            setSyncMessage(t('Usage synced successfully'));
+            setSyncError(null);
+        },
+        onError: (error: Error) => {
+            setSyncError(t('Failed to sync usage'));
+            setSyncMessage(null);
+        }
     });
 
-    if (isLoading) return <div className="min-h-screen bg-gray-100"><Navbar /><div className="p-8 flex justify-center"><LoadingSpinner /></div></div>;
-    if (error) return <div className="min-h-screen bg-gray-100"><Navbar /><div className="p-8"><ErrorMessage message="Failed to load tenant" /></div></div>;
+    if (authLoading || isLoading) return <div className="min-h-screen bg-gray-100"><Navbar /><div className="p-8 flex justify-center"><LoadingSpinner /></div></div>;
+    if (error) return <div className="min-h-screen bg-gray-100"><Navbar /><div className="p-8"><ErrorMessage message={t('Failed to load tenant')} /></div></div>;
+    if (!user) return null;
 
     return (
         <div className="min-h-screen bg-gray-100">
@@ -65,10 +90,23 @@ const TenantDetailPage: React.FC = () => {
                         </div>
                     )}
 
+                    {syncError && (
+                        <div className="mt-4 rounded-md bg-red-50 p-4">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm font-medium text-red-800">{syncError}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
                         <div className="bg-white overflow-hidden shadow rounded-lg p-6">
-                            <h3 className="text-lg font-medium text-gray-900">Sync Users</h3>
-                            <p className="mt-2 text-sm text-gray-500">Fetch latest users from Microsoft Graph.</p>
+                            <h3 className="text-lg font-medium text-gray-900">{t('Sync Users')}</h3>
+                            <p className="mt-2 text-sm text-gray-500">{t('Fetch latest users from Microsoft Graph')}</p>
                             <button
                                 onClick={() => syncUsersMutation.mutate()}
                                 disabled={syncUsersMutation.isPending}
@@ -79,8 +117,8 @@ const TenantDetailPage: React.FC = () => {
                         </div>
 
                         <div className="bg-white overflow-hidden shadow rounded-lg p-6">
-                            <h3 className="text-lg font-medium text-gray-900">Sync Licenses</h3>
-                            <p className="mt-2 text-sm text-gray-500">Fetch assigned licenses.</p>
+                            <h3 className="text-lg font-medium text-gray-900">{t('Sync Licenses')}</h3>
+                            <p className="mt-2 text-sm text-gray-500">{t('Fetch assigned licenses')}</p>
                             <button
                                 onClick={() => syncLicensesMutation.mutate()}
                                 disabled={syncLicensesMutation.isPending}
@@ -91,8 +129,8 @@ const TenantDetailPage: React.FC = () => {
                         </div>
 
                         <div className="bg-white overflow-hidden shadow rounded-lg p-6">
-                            <h3 className="text-lg font-medium text-gray-900">Sync Usage</h3>
-                            <p className="mt-2 text-sm text-gray-500">Fetch activity reports (28 days).</p>
+                            <h3 className="text-lg font-medium text-gray-900">{t('Sync Usage')}</h3>
+                            <p className="mt-2 text-sm text-gray-500">{t('Fetch activity reports')}</p>
                             <button
                                 onClick={() => syncUsageMutation.mutate()}
                                 disabled={syncUsageMutation.isPending}

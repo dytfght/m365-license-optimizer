@@ -42,10 +42,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         initAuth();
     }, []);
 
-    const login = (token: string) => {
+    const login = async (token: string) => {
         localStorage.setItem('token', token);
-        // Fetch user data immediately or redirect
-        router.push('/dashboard');
+        try {
+            const userData = await authService.me();
+            setUser(userData);
+            router.push('/dashboard');
+        } catch (error) {
+            console.error("Failed to fetch user profile after login", error);
+            // Optionally handle error (e.g. logout if token is invalid)
+        }
     };
 
     const logout = () => {

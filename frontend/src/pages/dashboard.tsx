@@ -6,15 +6,17 @@ import { Navbar } from '../components/Navbar';
 import { tenantService } from '../services/tenantService';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 const DashboardPage: React.FC = () => {
     const { t } = useTranslation();
+    const { user, loading: authLoading } = useRequireAuth();
     const { data: tenants, isLoading, error } = useQuery({
         queryKey: ['tenants'],
         queryFn: tenantService.getAll
     });
 
-    if (isLoading) return (
+    if (authLoading || isLoading) return (
         <div className="min-h-screen bg-gray-100">
             <Navbar />
             <div className="p-8 flex justify-center">
@@ -27,10 +29,13 @@ const DashboardPage: React.FC = () => {
         <div className="min-h-screen bg-gray-100">
             <Navbar />
             <div className="p-8">
-                <ErrorMessage message="Failed to load tenants" />
+                <ErrorMessage message={t('Failed to load tenants')} />
             </div>
         </div>
     );
+
+
+    if (!user) return null;
 
     return (
         <div className="min-h-screen bg-gray-100">
@@ -52,7 +57,7 @@ const DashboardPage: React.FC = () => {
                                             href={`/tenants/${tenant.id}`}
                                             className="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                                         >
-                                            Details
+                                            {t('Details')}
                                         </Link>
                                         <Link
                                             href={`/analyses/${tenant.id}`}

@@ -5,6 +5,8 @@ import { authService } from '../services/authService';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ErrorMessage } from './ErrorMessage';
 
+import { useAuth } from '../context/AuthContext';
+
 export const LoginForm: React.FC = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -12,6 +14,7 @@ export const LoginForm: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
     const { t } = useTranslation();
+    const { login } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -19,8 +22,8 @@ export const LoginForm: React.FC = () => {
         setError(null);
 
         try {
-            await authService.login(username, password);
-            router.push('/dashboard');
+            const data = await authService.login(username, password);
+            await login(data.access_token);
         } catch (err) {
             setError('Invalid credentials');
         } finally {

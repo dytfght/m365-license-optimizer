@@ -8,6 +8,7 @@ param redisName string
 param acrName string
 param appServicePlanName string
 param webAppName string
+param webAppFrontendName string
 
 // 1. Azure Container Registry
 resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' = {
@@ -117,6 +118,40 @@ resource webApp 'Microsoft.Web/sites@2022-03-01' = {
         {
           name: 'REDIS_URL'
           value: 'rediss://${redis.properties.hostName}:${redis.properties.sslPort},password=${redis.listKeys().primaryKey},ssl=True'
+        }
+      ]
+    }
+  }
+}
+
+// 6. Web App (Frontend)
+resource webAppFrontend 'Microsoft.Web/sites@2022-03-01' = {
+  name: webAppFrontendName
+  location: location
+  properties: {
+    serverFarmId: appPlan.id
+    siteConfig: {
+      linuxFxVersion: 'DOCKER|${acr.properties.loginServer}/m365-optimizer-frontend:latest'
+      appSettings: [
+        {
+          name: 'WEBSITES_PORT'
+          value: '3000'
+        }
+        {
+          name: 'DOCKER_REGISTRY_SERVER_URL'
+          value: 'https://${acr.properties.loginServer}'
+        }
+        {
+          name: 'DOCKER_REGISTRY_SERVER_USERNAME'
+          value: acr.name
+        }
+        {
+          name: 'DOCKER_REGISTRY_SERVER_PASSWORD'
+          value: acr.listCredentials().passwords[0].value
+        }
+        {
+          name: 'NEXT_PUBLIC_API_URL'
+          value: 'https://${webAppName}.azurewebsites.net/api/v1'
         }
       ]
     }

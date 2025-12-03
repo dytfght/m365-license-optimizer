@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
@@ -7,12 +7,17 @@ import { Navbar } from '../../components/Navbar';
 import { analysisService } from '../../services/analysisService';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { ErrorMessage } from '../../components/ErrorMessage';
+import { useRequireAuth } from '../../hooks/useRequireAuth';
+import { CheckCircle, AlertCircle } from 'lucide-react';
 
 const AnalysesPage: React.FC = () => {
     const router = useRouter();
     const { tenantId } = router.query;
     const { t } = useTranslation();
     const queryClient = useQueryClient();
+    const { user, loading: authLoading } = useRequireAuth();
+    const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
+    const [analysisError, setAnalysisError] = useState<string | null>(null);
 
     const { data: analyses, isLoading, error } = useQuery({
         queryKey: ['analyses', tenantId],
@@ -23,12 +28,19 @@ const AnalysesPage: React.FC = () => {
     const createAnalysisMutation = useMutation({
         mutationFn: () => analysisService.create(tenantId as string),
         onSuccess: () => {
+            setAnalysisMessage(t('Analysis created successfully'));
+            setAnalysisError(null);
             queryClient.invalidateQueries({ queryKey: ['analyses', tenantId] });
+        },
+        onError: (error: Error) => {
+            setAnalysisError(t('Failed to run analysis'));
+            setAnalysisMessage(null);
         }
     });
 
-    if (isLoading) return <div className="min-h-screen bg-gray-100"><Navbar /><div className="p-8 flex justify-center"><LoadingSpinner /></div></div>;
-    if (error) return <div className="min-h-screen bg-gray-100"><Navbar /><div className="p-8"><ErrorMessage message="Failed to load analyses" /></div></div>;
+    if (authLoading || isLoading) return <div className="min-h-screen bg-gray-100"><Navbar /><div className="p-8 flex justify-center"><LoadingSpinner /></div></div>;
+    if (error) return <div className="min-h-screen bg-gray-100"><Navbar /><div className="p-8"><ErrorMessage message={t('Failed to load analyses')} /></div></div>;
+    if (!user) return null;
 
     return (
         <div className="min-h-screen bg-gray-100">
@@ -52,6 +64,32 @@ const AnalysesPage: React.FC = () => {
                         </div>
                     </div>
 
+                    {analysisMessage && (
+                        <div className="mt-4 rounded-md bg-green-50 p-4">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <CheckCircle className="h-5 w-5 text-green-400" aria-hidden="true" />
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm font-medium text-green-800">{analysisMessage}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {analysisError && (
+                        <div className="mt-4 rounded-md bg-red-50 p-4">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm font-medium text-red-800">{analysisError}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="mt-8 flow-root">
                         <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
                             <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
@@ -74,8 +112,8 @@ const AnalysesPage: React.FC = () => {
                                                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{new Date(analysis.created_at).toLocaleDateString()}</td>
                                                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                                                         <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${analysis.status === 'completed' ? 'bg-green-50 text-green-700 ring-green-600/20' :
-                                                                analysis.status === 'failed' ? 'bg-red-50 text-red-700 ring-red-600/20' :
-                                                                    'bg-yellow-50 text-yellow-800 ring-yellow-600/20'
+                                                            analysis.status === 'failed' ? 'bg-red-50 text-red-700 ring-red-600/20' :
+                                                                'bg-yellow-50 text-yellow-800 ring-yellow-600/20'
                                                             }`}>
                                                             {analysis.status}
                                                         </span>

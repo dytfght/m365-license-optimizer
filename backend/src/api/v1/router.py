@@ -11,7 +11,9 @@ from .endpoints import (
     graph,
     pricing,
     reports,
+    reports,
     tenants,
+    users,
 )
 
 # Create v1 router
@@ -30,6 +32,7 @@ api_router.include_router(
 api_router.include_router(
     analytics.router, prefix="/analytics", tags=["analytics"]
 )  # Analytics endpoints
+api_router.include_router(users.router)
 
 # Health endpoints are included at root level in main.py
 # but we can also include them here for /api/v1/health

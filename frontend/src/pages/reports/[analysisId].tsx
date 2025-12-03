@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -6,13 +6,17 @@ import { Navbar } from '../../components/Navbar';
 import { reportService } from '../../services/reportService';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { ErrorMessage } from '../../components/ErrorMessage';
-import { FileText, FileSpreadsheet, Download } from 'lucide-react';
+import { FileText, FileSpreadsheet, Download, CheckCircle, AlertCircle } from 'lucide-react';
+import { useRequireAuth } from '../../hooks/useRequireAuth';
 
 const ReportsPage: React.FC = () => {
     const router = useRouter();
     const { analysisId } = router.query;
     const { t } = useTranslation();
     const queryClient = useQueryClient();
+    const { user, loading: authLoading } = useRequireAuth();
+    const [reportMessage, setReportMessage] = useState<string | null>(null);
+    const [reportError, setReportError] = useState<string | null>(null);
 
     const { data: reports, isLoading, error } = useQuery({
         queryKey: ['reports', analysisId],
@@ -22,12 +26,28 @@ const ReportsPage: React.FC = () => {
 
     const generatePdfMutation = useMutation({
         mutationFn: () => reportService.generatePdf(analysisId as string),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reports', analysisId] })
+        onSuccess: () => {
+            setReportMessage(t('Report generated successfully'));
+            setReportError(null);
+            queryClient.invalidateQueries({ queryKey: ['reports', analysisId] });
+        },
+        onError: (error: Error) => {
+            setReportError(t('Failed to generate report'));
+            setReportMessage(null);
+        }
     });
 
     const generateExcelMutation = useMutation({
         mutationFn: () => reportService.generateExcel(analysisId as string),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reports', analysisId] })
+        onSuccess: () => {
+            setReportMessage(t('Report generated successfully'));
+            setReportError(null);
+            queryClient.invalidateQueries({ queryKey: ['reports', analysisId] });
+        },
+        onError: (error: Error) => {
+            setReportError(t('Failed to generate report'));
+            setReportMessage(null);
+        }
     });
 
     const handleDownload = async (reportId: string) => {
@@ -39,8 +59,9 @@ const ReportsPage: React.FC = () => {
         }
     };
 
-    if (isLoading) return <div className="min-h-screen bg-gray-100"><Navbar /><div className="p-8 flex justify-center"><LoadingSpinner /></div></div>;
-    if (error) return <div className="min-h-screen bg-gray-100"><Navbar /><div className="p-8"><ErrorMessage message="Failed to load reports" /></div></div>;
+    if (authLoading || isLoading) return <div className="min-h-screen bg-gray-100"><Navbar /><div className="p-8 flex justify-center"><LoadingSpinner /></div></div>;
+    if (error) return <div className="min-h-screen bg-gray-100"><Navbar /><div className="p-8"><ErrorMessage message={t('Failed to load reports')} /></div></div>;
+    if (!user) return null;
 
     return (
         <div className="min-h-screen bg-gray-100">
@@ -59,17 +80,43 @@ const ReportsPage: React.FC = () => {
                                 disabled={generatePdfMutation.isPending}
                                 className="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
                             >
-                                {generatePdfMutation.isPending ? <LoadingSpinner className="h-4 w-4" /> : <><FileText className="mr-2 h-4 w-4" /> Generate PDF</>}
+                                {generatePdfMutation.isPending ? <LoadingSpinner className="h-4 w-4" /> : <><FileText className="mr-2 h-4 w-4" /> {t('Generate PDF')}</>}
                             </button>
                             <button
                                 onClick={() => generateExcelMutation.mutate()}
                                 disabled={generateExcelMutation.isPending}
                                 className="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
                             >
-                                {generateExcelMutation.isPending ? <LoadingSpinner className="h-4 w-4" /> : <><FileSpreadsheet className="mr-2 h-4 w-4" /> Generate Excel</>}
+                                {generateExcelMutation.isPending ? <LoadingSpinner className="h-4 w-4" /> : <><FileSpreadsheet className="mr-2 h-4 w-4" /> {t('Generate Excel')}</>}
                             </button>
                         </div>
                     </div>
+
+                    {reportMessage && (
+                        <div className="mt-4 rounded-md bg-green-50 p-4">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <CheckCircle className="h-5 w-5 text-green-400" aria-hidden="true" />
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm font-medium text-green-800">{reportMessage}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {reportError && (
+                        <div className="mt-4 rounded-md bg-red-50 p-4">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm font-medium text-red-800">{reportError}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                         {reports?.map((report) => (
