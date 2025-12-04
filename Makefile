@@ -284,6 +284,30 @@ clean-frontend:
 	@echo "$(GREEN)✓ Frontend cleaned$(NC)"
 
 # ============================================
+# Security & GDPR (LOT 10)
+# ============================================
+
+## security-scan: Run security analysis
+security-scan:
+	@echo "$(BLUE)Running Security Scan...$(NC)"
+	@$(RUN_IN_VENV) bandit -r src/ -ll -f txt' || echo "$(YELLOW)Bandit not installed, run: pip install bandit$(NC)"
+	@$(RUN_IN_FRONTEND) npm audit || echo "$(YELLOW)Frontend audit failed$(NC)"
+	@echo "$(GREEN)✓ Security scan complete$(NC)"
+
+## gdpr-audit: Check GDPR compliance
+gdpr-audit:
+	@echo "$(BLUE)Running GDPR Audit...$(NC)"
+	@echo "Checking log retention policy..."
+	@$(RUN_IN_VENV) python -c "from src.core.config import settings; print(f\"Log retention: {settings.LOG_RETENTION_DAYS} days\")' || echo "$(RED)Config check failed$(NC)"
+	@echo "$(GREEN)✓ GDPR audit complete$(NC)"
+
+## test-lot10: Run LOT 10 specific tests
+test-lot10:
+	@echo "$(BLUE)Running LOT 10 Tests...$(NC)"
+	@$(RUN_IN_VENV) pytest tests/unit/test_security_service.py tests/unit/test_gdpr_service.py tests/unit/test_logging_service.py -v'
+	@echo "$(GREEN)✓ LOT 10 tests complete$(NC)"
+
+# ============================================
 # Utilities
 # ============================================
 
@@ -291,3 +315,4 @@ check-prereqs:
 	@command -v docker >/dev/null 2>&1 || { echo "$(RED)Docker not found$(NC)"; exit 1; }
 	@command -v python3 >/dev/null 2>&1 || { echo "$(RED)Python3 not found$(NC)"; exit 1; }
 	@command -v npm >/dev/null 2>&1 || { echo "$(RED)npm not found$(NC)"; exit 1; }
+

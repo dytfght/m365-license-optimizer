@@ -109,6 +109,7 @@ m365-license-optimizer/
 | **7** | Génération de rapports PDF/Excel | ✅ Terminé |
 | **8** | Partner Center Mapping & Add-ons | ✅ Terminé |
 | **9** | Frontend React/Next.js | ✅ Terminé |
+| **10** | Sécurité, RGPD & Journalisation | ✅ Terminé |
 
 ### 🎯 Fonctionnalités principales
 
@@ -167,6 +168,19 @@ DELETE /api/v1/admin/sku-mapping/compatibility-mappings/{id}      # Supprimer ma
 GET    /api/v1/admin/sku-mapping/recommendations/{base_sku_id}    # Recommandations add-ons
 ```
 
+#### Sécurité, RGPD & Logs (Lot 10)
+```
+POST   /api/v1/gdpr/consent/{tenant_id}     # Enregistrer consent
+GET    /api/v1/gdpr/consent/{tenant_id}     # Vérifier consent
+GET    /api/v1/gdpr/export/{user_id}        # Export données (Art 20)
+DELETE /api/v1/gdpr/delete/{user_id}        # Droit à l'oubli (Art 17)
+POST   /api/v1/gdpr/admin/registry          # PDF registre (Art 30)
+GET    /api/v1/admin/logs                   # Liste logs filtrée
+GET    /api/v1/admin/logs/{id}              # Détails log
+POST   /api/v1/admin/logs/purge             # Purge RGPD (90j)
+GET    /api/v1/admin/logs/statistics/summary # Stats erreurs
+```
+
 ## 🧪 Tests
 
 ```bash
@@ -214,6 +228,7 @@ Les validations détaillées par lot sont disponibles dans les fichiers :
 - [LOT6-VALIDATION.md](./LOT6-VALIDATION.md) - License Optimization
 - [LOT7-VALIDATION.md](./LOT7-VALIDATION.md) - Report Generation
 - [LOT8-VALIDATION.md](./LOT8-VALIDATION.md) - Partner Center Mapping & Add-ons
+- [LOT10-VALIDATION.md](./LOT10-VALIDATION.md) - Sécurité, RGPD & Journalisation
 
 ## 🤝 Contribution
 

@@ -8,7 +8,9 @@ from .endpoints import (
     analyses,
     analytics,
     auth,
+    gdpr,
     graph,
+    logs,
     pricing,
     reports,
     reports,
@@ -33,9 +35,12 @@ api_router.include_router(
     analytics.router, prefix="/analytics", tags=["analytics"]
 )  # Analytics endpoints
 api_router.include_router(users.router)
+api_router.include_router(gdpr.router)  # LOT10: GDPR compliance endpoints
+api_router.include_router(logs.router)  # LOT10: Admin logs endpoints
 
 # Health endpoints are included at root level in main.py
 # but we can also include them here for /api/v1/health
 # (health.router is included in main.py at root level)
 
 __all__ = ["api_router"]
+

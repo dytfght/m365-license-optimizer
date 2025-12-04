@@ -84,6 +84,14 @@ class TenantClient(Base, UUIDMixin, TimestampMixin):
         JSONB, nullable=True, comment="Additional tenant metadata"
     )
 
+    # GDPR Compliance (LOT 10)
+    gdpr_consent: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, comment="GDPR consent given"
+    )
+    gdpr_consent_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, comment="Date of GDPR consent"
+    )
+
     # Relationships
     app_registration: Mapped[Optional["TenantAppRegistration"]] = relationship(
         "TenantAppRegistration",

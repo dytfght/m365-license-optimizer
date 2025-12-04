@@ -1,6 +1,6 @@
 """
 FastAPI application entry point for M365 License Optimizer
-Lot 7: License optimization with PDF/Excel report generation
+Lot 10: Security, GDPR Compliance & Logging
 """
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator

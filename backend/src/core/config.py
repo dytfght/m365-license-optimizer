@@ -21,11 +21,12 @@ class Settings(BaseSettings):
     )
     # Application
     APP_NAME: str = "M365 License Optimizer"
-    APP_VERSION: str = "0.9.0"
-    LOT_NUMBER: int = 9
+    APP_VERSION: str = "0.10.0"
+    LOT_NUMBER: int = 10
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: Literal["development", "test", "production"] = "development"
     LOG_LEVEL: str = "INFO"
+    LOG_RETENTION_DAYS: int = 90  # GDPR compliance
     # Database
     POSTGRES_DB: str
     POSTGRES_USER: str
