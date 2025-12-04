@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     )
     # Application
     APP_NAME: str = "M365 License Optimizer"
-    APP_VERSION: str = "0.8.0"
-    LOT_NUMBER: int = 8
+    APP_VERSION: str = "0.9.0"
+    LOT_NUMBER: int = 9
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: Literal["development", "test", "production"] = "development"
     LOG_LEVEL: str = "INFO"

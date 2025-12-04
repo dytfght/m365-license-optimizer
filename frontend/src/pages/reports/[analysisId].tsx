@@ -53,9 +53,40 @@ const ReportsPage: React.FC = () => {
     const handleDownload = async (reportId: string) => {
         try {
             const url = await reportService.getDownloadUrl(reportId);
-            window.open(url, '_blank');
+            const token = localStorage.getItem('token');
+
+            // Fetch the file with authentication
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Download failed: ${response.status}`);
+            }
+
+            // Get the filename from Content-Disposition header or use a default
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = 'report';
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename="?(.+)"?/);
+                if (match) filename = match[1];
+            }
+
+            // Create blob and trigger download
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
         } catch (e) {
-            console.error("Failed to get download URL", e);
+            console.error("Failed to download report", e);
+            setReportError(t('Failed to download report'));
         }
     };
 
@@ -124,13 +155,13 @@ const ReportsPage: React.FC = () => {
                                 <div className="px-4 py-5 sm:p-6">
                                     <div className="flex items-center">
                                         <div className="flex-shrink-0">
-                                            {report.format === 'pdf' ? <FileText className="h-8 w-8 text-red-500" /> : <FileSpreadsheet className="h-8 w-8 text-green-500" />}
+                                            {report.report_type?.toUpperCase() === 'PDF' ? <FileText className="h-8 w-8 text-red-500" /> : <FileSpreadsheet className="h-8 w-8 text-green-500" />}
                                         </div>
                                         <div className="ml-5 w-0 flex-1">
                                             <dl>
-                                                <dt className="truncate text-sm font-medium text-gray-500">{report.name}</dt>
+                                                <dt className="truncate text-sm font-medium text-gray-500">{report.file_name || 'Report'}</dt>
                                                 <dd>
-                                                    <div className="text-lg font-medium text-gray-900">{report.format.toUpperCase()}</div>
+                                                    <div className="text-lg font-medium text-gray-900">{report.report_type || 'Unknown'}</div>
                                                 </dd>
                                             </dl>
                                         </div>

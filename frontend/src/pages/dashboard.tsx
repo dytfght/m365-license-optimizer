@@ -50,7 +50,7 @@ const DashboardPage: React.FC = () => {
                             <div key={tenant.id} className="overflow-hidden rounded-lg bg-white shadow hover:shadow-md transition-shadow">
                                 <div className="px-4 py-5 sm:p-6">
                                     <h3 className="text-lg font-medium leading-6 text-gray-900">{tenant.name}</h3>
-                                    <p className="mt-1 text-sm text-gray-500">{tenant.domain_name}</p>
+                                    <p className="mt-1 text-sm text-gray-500">{tenant.country} - {tenant.default_language}</p>
                                     <p className="mt-2 text-xs text-gray-400">ID: {tenant.tenant_id}</p>
                                     <div className="mt-4 flex space-x-3">
                                         <Link

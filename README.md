@@ -108,6 +108,7 @@ m365-license-optimizer/
 | **6** | Optimisation des licences | ✅ Terminé |
 | **7** | Génération de rapports PDF/Excel | ✅ Terminé |
 | **8** | Partner Center Mapping & Add-ons | ✅ Terminé |
+| **9** | Frontend React/Next.js | ✅ Terminé |
 
 ### 🎯 Fonctionnalités principales
 
@@ -146,7 +147,8 @@ POST /api/v1/reports/analyses/{id}/excel       # Générer rapport Excel
 GET  /api/v1/reports/analyses/{id}             # Liste rapports d'une analyse
 GET  /api/v1/reports/tenants/{id}              # Liste rapports d'un tenant
 GET  /api/v1/reports/{id}                      # Détails d'un rapport
-GET  /api/v1/reports/{id}/download             # URL de téléchargement
+GET  /api/v1/reports/{id}/download             # Info de téléchargement
+GET  /api/v1/reports/{id}/file                 # Télécharger le fichier
 DELETE /api/v1/reports/{id}                    # Supprimer un rapport
 POST /api/v1/reports/cleanup                   # Nettoyer rapports expirés
 ```

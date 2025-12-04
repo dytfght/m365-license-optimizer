@@ -109,10 +109,10 @@ const AnalysesPage: React.FC = () => {
                                             {analyses?.map((analysis) => (
                                                 <tr key={analysis.id}>
                                                     <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{analysis.id.substring(0, 8)}...</td>
-                                                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{new Date(analysis.created_at).toLocaleDateString()}</td>
+                                                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{new Date(analysis.analysis_date).toLocaleDateString()}</td>
                                                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                                        <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${analysis.status === 'completed' ? 'bg-green-50 text-green-700 ring-green-600/20' :
-                                                            analysis.status === 'failed' ? 'bg-red-50 text-red-700 ring-red-600/20' :
+                                                        <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${analysis.status === 'COMPLETED' ? 'bg-green-50 text-green-700 ring-green-600/20' :
+                                                            analysis.status === 'FAILED' ? 'bg-red-50 text-red-700 ring-red-600/20' :
                                                                 'bg-yellow-50 text-yellow-800 ring-yellow-600/20'
                                                             }`}>
                                                             {analysis.status}

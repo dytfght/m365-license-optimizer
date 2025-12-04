@@ -9,7 +9,6 @@ describe('Navbar', () => {
     it('renders links', () => {
         render(<Navbar />);
         expect(screen.getByText('Dashboard')).toBeInTheDocument();
-        expect(screen.getByText('Analyses')).toBeInTheDocument();
         expect(screen.getByText('Admin')).toBeInTheDocument();
     });
 

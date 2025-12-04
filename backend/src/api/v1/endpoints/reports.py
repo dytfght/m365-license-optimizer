@@ -351,6 +351,83 @@ async def download_report(
         )
 
 
+@router.get(
+    "/{report_id}/file",
+    summary="Serve report file",
+    description="Download the actual report file (PDF or Excel)",
+)
+async def serve_report_file(
+    report_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Serve the actual report file for download"""
+    from fastapi.responses import FileResponse
+    import os
+
+    logger.info(
+        "serve_report_file_requested",
+        report_id=str(report_id),
+        user_email=current_user.user_principal_name,
+    )
+
+    try:
+        # Create report service
+        report_service = ReportService(db)
+
+        # Get report
+        report = await report_service.get_report_by_id(report_id)
+
+        if not report:
+            logger.warning("report_not_found_for_file", report_id=str(report_id))
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Report not found"
+            )
+
+        # Check if report is expired
+        from datetime import timezone
+
+        if report.expires_at and report.expires_at < datetime.now(timezone.utc):
+            logger.warning("report_expired_for_file", report_id=str(report_id))
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail="Report has expired and is no longer available",
+            )
+
+        # Check if file exists
+        if not os.path.exists(report.file_path):
+            logger.error("report_file_not_found", file_path=report.file_path)
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Report file not found on server",
+            )
+
+        logger.info(
+            "serving_report_file",
+            report_id=str(report_id),
+            file_name=report.file_name,
+            mime_type=report.mime_type,
+        )
+
+        return FileResponse(
+            path=report.file_path,
+            filename=report.file_name,
+            media_type=report.mime_type,
+        )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.error(
+            "failed_to_serve_report_file", report_id=str(report_id), error=str(e)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to serve report file: {str(e)}",
+        )
+
+
 @router.delete(
     "/{report_id}",
     status_code=status.HTTP_204_NO_CONTENT,

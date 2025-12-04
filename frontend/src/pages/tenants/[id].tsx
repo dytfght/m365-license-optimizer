@@ -73,7 +73,7 @@ const TenantDetailPage: React.FC = () => {
                             <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
                                 {tenant?.name}
                             </h2>
-                            <p className="mt-1 text-sm text-gray-500">{tenant?.domain_name}</p>
+                            <p className="mt-1 text-sm text-gray-500">{tenant?.country} - {tenant?.default_language}</p>
                         </div>
                     </div>
 
