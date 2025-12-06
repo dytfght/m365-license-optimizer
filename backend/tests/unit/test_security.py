@@ -1,7 +1,7 @@
 """
 Unit tests for core.security module (JWT and password hashing)
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from jose import JWTError
@@ -102,8 +102,8 @@ class TestJWTTokens:
         token = create_access_token(data)
         payload = decode_token(token)
 
-        exp = datetime.fromtimestamp(payload["exp"])
-        now = datetime.utcnow()
+        exp = datetime.fromtimestamp(payload["exp"], timezone.utc)
+        now = datetime.now(timezone.utc)
 
         assert exp > now  # Token should expire in the future
 
@@ -114,8 +114,8 @@ class TestJWTTokens:
         token = create_access_token(data, expires_delta=custom_expiration)
         payload = decode_token(token)
 
-        exp = datetime.fromtimestamp(payload["exp"])
-        iat = datetime.fromtimestamp(payload["iat"])
+        exp = datetime.fromtimestamp(payload["exp"], timezone.utc)
+        iat = datetime.fromtimestamp(payload["iat"], timezone.utc)
 
         # Expiration should be approximately 5 minutes from issued time
         diff = (exp - iat).total_seconds()

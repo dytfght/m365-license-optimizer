@@ -1,7 +1,7 @@
 """
 Analytics repository for database operations
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Sequence
 from uuid import UUID
 
@@ -160,7 +160,7 @@ class AnalyticsMetricRepository(BaseRepository[AnalyticsMetric]):
         """Delete metrics older than specified days"""
         from datetime import timedelta
 
-        cutoff_date = datetime.utcnow() - timedelta(days=keep_days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=keep_days)
 
         # Find count first
         count_query = select(func.count()).where(
@@ -319,7 +319,7 @@ class AnalyticsSnapshotRepository(BaseRepository[AnalyticsSnapshot]):
         """Delete snapshots older than specified days"""
         from datetime import timedelta
 
-        cutoff_date = datetime.utcnow() - timedelta(days=keep_days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=keep_days)
 
         # Find count first
         count_query = select(func.count()).where(

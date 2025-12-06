@@ -2,7 +2,7 @@
 License Repository
 Handles CRUD operations for license assignments.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -46,7 +46,7 @@ class LicenseRepository(BaseRepository[LicenseAssignment]):
             LicenseAssignment instance
         """
         if assignment_date is None:
-            assignment_date = datetime.utcnow()
+            assignment_date = datetime.now(timezone.utc)
 
         # Use PostgreSQL INSERT ... ON CONFLICT DO UPDATE
         stmt = (

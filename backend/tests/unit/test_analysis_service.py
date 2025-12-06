@@ -1,7 +1,7 @@
 """
 Unit tests for AnalysisService
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
@@ -37,7 +37,7 @@ async def test_calculate_usage_scores_with_activity(db_session):
             id=uuid4(),
             user_id=uuid4(),
             period="D28",
-            report_date=datetime.utcnow().date(),
+            report_date=datetime.now(timezone.utc).date(),
             email_activity={"send_count": 50, "receive_count": 50},
             onedrive_activity={"viewed_or_edited_file_count": 25},
             sharepoint_activity={"viewed_or_edited_file_count": 25},

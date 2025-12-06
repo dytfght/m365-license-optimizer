@@ -422,7 +422,7 @@ async def create_compatibility_mapping(
     """
     try:
         sku_service = SkuMappingService(db)
-        mapping = await sku_service.create_mapping(**request.dict())
+        mapping = await sku_service.create_mapping(**request.model_dump())
 
         logger.info(
             "compatibility_mapping_created_via_api",
@@ -494,7 +494,7 @@ async def update_compatibility_mapping(
     try:
         sku_service = SkuMappingService(db)
         mapping = await sku_service.update_mapping(
-            mapping_id, **request.dict(exclude_unset=True)
+            mapping_id, **request.model_dump(exclude_unset=True)
         )
 
         if not mapping:

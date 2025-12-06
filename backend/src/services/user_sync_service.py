@@ -1,7 +1,7 @@
 """
 Service for syncing users from Microsoft Graph
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 import structlog
@@ -33,7 +33,7 @@ class UserSyncService:
         Returns:
             dict with sync statistics
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         # Get tenant with app registration
         tenant = await self.tenant_repo.get_with_app_registration(tenant_id)
@@ -103,7 +103,7 @@ class UserSyncService:
                 # Commit transaction
                 await self.session.commit()
 
-                duration = (datetime.utcnow() - start_time).total_seconds()
+                duration = (datetime.now(timezone.utc) - start_time).total_seconds()
 
                 logger.info(
                     "user_sync_completed",

@@ -1,7 +1,7 @@
 """
 Report Service - Main service for generating PDF and Excel reports
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -72,7 +72,7 @@ class ReportService:
             mime_type="application/pdf",
             report_metadata=report_data.get("metadata", {}),
             generated_by=generated_by,
-            expires_at=datetime.utcnow() + timedelta(days=90),  # 90 days TTL
+            expires_at=datetime.now(timezone.utc) + timedelta(days=90),  # 90 days TTL
         )
 
         self.session.add(report)
@@ -127,7 +127,7 @@ class ReportService:
             mime_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             report_metadata=report_data.get("metadata", {}),
             generated_by=generated_by,
-            expires_at=datetime.utcnow() + timedelta(days=90),  # 90 days TTL
+            expires_at=datetime.now(timezone.utc) + timedelta(days=90),  # 90 days TTL
         )
 
         self.session.add(report)
@@ -184,7 +184,7 @@ class ReportService:
             return False
 
         # Soft delete by updating expires_at
-        report.expires_at = datetime.utcnow()
+        report.expires_at = datetime.now(timezone.utc)
         await self.session.commit()
 
         logger.info("report_deleted", report_id=str(report_id))
@@ -193,7 +193,7 @@ class ReportService:
     async def cleanup_expired_reports(self) -> int:
         """Clean up reports that have expired"""
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         result = await self.session.execute(
             select(Report).where(Report.expires_at < now)
@@ -277,12 +277,12 @@ class ReportService:
             "name": tenant_name,
             "period_start": analysis.analysis_date.strftime("%d/%m/%Y")
             if analysis.analysis_date
-            else datetime.utcnow().strftime("%d/%m/%Y"),
+            else datetime.now(timezone.utc).strftime("%d/%m/%Y"),
             "period_end": (analysis.analysis_date + timedelta(days=28)).strftime(
                 "%d/%m/%Y"
             )
             if analysis.analysis_date
-            else datetime.utcnow().strftime("%d/%m/%Y"),
+            else datetime.now(timezone.utc).strftime("%d/%m/%Y"),
         }
 
         return {
@@ -296,7 +296,7 @@ class ReportService:
             "top_recommendations": top_recommendations,
             "departments": departments,
             "report_metadata": {
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
                 "report_version": "1.0",
                 "tenant_name": tenant_info["name"],
             },
@@ -429,7 +429,7 @@ class ReportService:
         reports_dir.mkdir(exist_ok=True)
 
         # Create subdirectory by date
-        date_dir = reports_dir / datetime.utcnow().strftime("%Y/%m")
+        date_dir = reports_dir / datetime.now(timezone.utc).strftime("%Y/%m")
         date_dir.mkdir(parents=True, exist_ok=True)
 
         # Full file path

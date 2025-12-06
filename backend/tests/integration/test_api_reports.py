@@ -1,7 +1,7 @@
 """
 Integration tests for Reports API endpoints
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -21,9 +21,9 @@ async def test_generate_pdf_report_success(
         id=uuid4(),
         tenant_client_id=test_tenant.id,
         status="COMPLETED",
-        analysis_date=datetime.utcnow(),
+        analysis_date=datetime.now(timezone.utc),
         summary={"total_users": 100, "potential_savings": 5000.0},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -58,9 +58,9 @@ async def test_generate_excel_report_success(
         id=uuid4(),
         tenant_client_id=test_tenant.id,
         status="COMPLETED",
-        analysis_date=datetime.utcnow(),
+        analysis_date=datetime.now(timezone.utc),
         summary={"total_users": 100, "potential_savings": 5000.0},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -126,9 +126,9 @@ async def test_list_analysis_reports(
         id=uuid4(),
         tenant_client_id=test_tenant.id,
         status="COMPLETED",
-        analysis_date=datetime.utcnow(),
+        analysis_date=datetime.now(timezone.utc),
         summary={"total_users": 100, "potential_savings": 5000.0},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -175,9 +175,9 @@ async def test_list_tenant_reports(
         id=uuid4(),
         tenant_client_id=test_tenant.id,
         status="COMPLETED",
-        analysis_date=datetime.utcnow(),
+        analysis_date=datetime.now(timezone.utc),
         summary={"total_users": 100, "potential_savings": 5000.0},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -217,9 +217,9 @@ async def test_list_tenant_reports_with_filter(
         id=uuid4(),
         tenant_client_id=test_tenant.id,
         status="COMPLETED",
-        analysis_date=datetime.utcnow(),
+        analysis_date=datetime.now(timezone.utc),
         summary={"total_users": 100, "potential_savings": 5000.0},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -258,9 +258,9 @@ async def test_get_report_details(
         id=uuid4(),
         tenant_client_id=test_tenant.id,
         status="COMPLETED",
-        analysis_date=datetime.utcnow(),
+        analysis_date=datetime.now(timezone.utc),
         summary={"total_users": 100, "potential_savings": 5000.0},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -316,9 +316,9 @@ async def test_download_report(
         id=uuid4(),
         tenant_client_id=test_tenant.id,
         status="COMPLETED",
-        analysis_date=datetime.utcnow(),
+        analysis_date=datetime.now(timezone.utc),
         summary={"total_users": 100, "potential_savings": 5000.0},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -364,8 +364,8 @@ async def test_download_expired_report(
         file_size_bytes=1024,
         mime_type="application/pdf",
         generated_by="test@example.com",
-        created_at=datetime.utcnow() - timedelta(days=30),
-        expires_at=datetime.utcnow() - timedelta(days=1),  # Expired yesterday
+        created_at=datetime.now(timezone.utc) - timedelta(days=30),
+        expires_at=datetime.now(timezone.utc) - timedelta(days=1),  # Expired yesterday
     )
     db_session.add(expired_report)
     await db_session.commit()
@@ -391,9 +391,9 @@ async def test_delete_report(
         id=uuid4(),
         tenant_client_id=test_tenant.id,
         status="COMPLETED",
-        analysis_date=datetime.utcnow(),
+        analysis_date=datetime.now(timezone.utc),
         summary={"total_users": 100, "potential_savings": 5000.0},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(analysis)
     await db_session.commit()
@@ -453,8 +453,8 @@ async def test_cleanup_expired_reports(
             file_size_bytes=1024,
             mime_type="application/pdf",
             generated_by="test@example.com",
-            created_at=datetime.utcnow() - timedelta(days=30),
-            expires_at=datetime.utcnow() - timedelta(days=1),  # Expired
+            created_at=datetime.now(timezone.utc) - timedelta(days=30),
+            expires_at=datetime.now(timezone.utc) - timedelta(days=1),  # Expired
         )
         db_session.add(expired_report)
 
@@ -468,8 +468,8 @@ async def test_cleanup_expired_reports(
         file_size_bytes=1024,
         mime_type="application/pdf",
         generated_by="test@example.com",
-        created_at=datetime.utcnow(),
-        expires_at=datetime.utcnow() + timedelta(days=7),  # Not expired
+        created_at=datetime.now(timezone.utc),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7),  # Not expired
     )
     db_session.add(valid_report)
     await db_session.commit()
@@ -498,9 +498,9 @@ async def test_report_pagination(
         id=uuid4(),
         tenant_client_id=test_tenant.id,
         status="COMPLETED",
-        analysis_date=datetime.utcnow(),
+        analysis_date=datetime.now(timezone.utc),
         summary={"total_users": 100, "potential_savings": 5000.0},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(analysis)
     await db_session.commit()

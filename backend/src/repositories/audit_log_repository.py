@@ -2,7 +2,7 @@
 Audit Log Repository for LOT 10
 Handles database operations for audit logs.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -176,7 +176,7 @@ class AuditLogRepository:
         Returns:
             Count of logs
         """
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
         result = await self.db.execute(
             select(func.count(AuditLog.id))
             .where(AuditLog.level == level.lower())

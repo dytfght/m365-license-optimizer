@@ -133,9 +133,9 @@ class AddonCompatibility(Base, UUIDMixin, TimestampMixin):
         if not self.is_active:
             return False
 
-        from datetime import datetime
+        from datetime import datetime, timezone
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         if self.effective_date and now < self.effective_date:
             return False

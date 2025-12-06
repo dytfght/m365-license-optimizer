@@ -2,7 +2,7 @@
 Logging Service for LOT 10: Persistent logging in database
 Handles storing, querying, and purging audit logs.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 from uuid import UUID
 
@@ -203,7 +203,7 @@ class LoggingService:
             Number of deleted logs
         """
         retention_days = float(days or getattr(settings, "LOG_RETENTION_DAYS", 90) or 90)
-        cutoff_date = datetime.utcnow() - timedelta(days=retention_days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=retention_days)
 
         # Count logs to be deleted
         count_result = await self.db.execute(
@@ -242,7 +242,7 @@ class LoggingService:
         Returns:
             Statistics dictionary
         """
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
         base_query = select(AuditLog).where(AuditLog.created_at >= start_date)
         if tenant_id:

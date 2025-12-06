@@ -1,7 +1,7 @@
 """
 Report Repository - Data access layer for reports
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -53,7 +53,7 @@ class ReportRepository(BaseRepository[Report]):
     ) -> List[Report]:
         """Get reports that haven't expired"""
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         query = (
             select(Report)
@@ -72,7 +72,7 @@ class ReportRepository(BaseRepository[Report]):
     ) -> List[Report]:
         """Get reports that have expired"""
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         query = (
             select(Report)
@@ -94,7 +94,7 @@ class ReportRepository(BaseRepository[Report]):
     ) -> List[Report]:
         """Get reports from the last N days"""
 
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
         query = select(Report).where(Report.created_at >= cutoff_date)
 
@@ -152,7 +152,7 @@ class ReportRepository(BaseRepository[Report]):
     async def delete_expired_reports(self, batch_size: int = 100) -> int:
         """Delete reports that have expired and return count"""
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Get expired reports
         result = await self.session.execute(

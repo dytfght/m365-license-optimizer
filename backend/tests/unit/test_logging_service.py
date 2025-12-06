@@ -2,7 +2,7 @@
 Unit tests for LoggingService (LOT 10)
 Tests log storage, retrieval, and purging.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -124,8 +124,8 @@ class TestLoggingService:
     @pytest.mark.asyncio
     async def test_get_logs_with_date_range(self, service, mock_db):
         """Test log retrieval with date range filter."""
-        start_date = datetime.utcnow() - timedelta(days=7)
-        end_date = datetime.utcnow()
+        start_date = datetime.now(timezone.utc) - timedelta(days=7)
+        end_date = datetime.now(timezone.utc)
 
         count_result = MagicMock()
         count_result.scalar.return_value = 50

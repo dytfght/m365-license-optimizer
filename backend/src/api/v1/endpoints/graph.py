@@ -2,7 +2,7 @@
 Microsoft Graph API endpoints for syncing users, licenses, and usage data
 """
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
@@ -403,7 +403,7 @@ async def sync_usage(
                     or activities.get("onedrive_activity", {}).get(
                         "Report Refresh Date"
                     )
-                    or datetime.utcnow().strftime("%Y-%m-%d")
+                    or datetime.now(timezone.utc).strftime("%Y-%m-%d")
                 )
 
                 report_date = datetime.strptime(report_date_str, "%Y-%m-%d").date()

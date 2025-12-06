@@ -1,7 +1,7 @@
 """
 Repository for Analysis operations
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -37,7 +37,7 @@ class AnalysisRepository(BaseRepository[Analysis]):
             Analysis entity
         """
         if analysis_date is None:
-            analysis_date = datetime.utcnow()
+            analysis_date = datetime.now(timezone.utc)
 
         analysis = Analysis(
             tenant_client_id=tenant_id,

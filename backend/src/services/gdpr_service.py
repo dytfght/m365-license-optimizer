@@ -2,7 +2,7 @@
 GDPR Service for LOT 10: GDPR compliance operations
 Handles consent management, data export, and right to be forgotten.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 from typing import Any, Dict
 from uuid import UUID
@@ -68,7 +68,7 @@ class GdprService:
             raise ValueError(f"Tenant {tenant_id} not found")
 
         tenant.gdpr_consent = consent_given
-        tenant.gdpr_consent_date = datetime.utcnow() if consent_given else None
+        tenant.gdpr_consent_date = datetime.now(timezone.utc) if consent_given else None
 
         await self.db.commit()
         await self.db.refresh(tenant)
@@ -155,7 +155,7 @@ class GdprService:
         recommendations = recommendations_result.scalars().all()
 
         export_data = {
-            "export_date": datetime.utcnow().isoformat(),
+            "export_date": datetime.now(timezone.utc).isoformat(),
             "export_type": "GDPR_ARTICLE_20_DATA_PORTABILITY",
             "user": {
                 "id": str(user.id),
@@ -251,7 +251,7 @@ class GdprService:
                 continue
 
         return {
-            "export_date": datetime.utcnow().isoformat(),
+            "export_date": datetime.now(timezone.utc).isoformat(),
             "export_type": "GDPR_TENANT_FULL_EXPORT",
             "tenant": {
                 "id": str(tenant.id),
@@ -296,7 +296,7 @@ class GdprService:
         summary: Dict[str, Any] = {
             "user_id": str(user_id),
             "action": "anonymized" if anonymize else "deleted",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "data_affected": {},
         }
 
@@ -367,7 +367,7 @@ class GdprService:
 
         # Title
         story.append(Paragraph("GDPR Processing Activities Registry", title_style))
-        story.append(Paragraph(f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}", styles["Normal"]))
+        story.append(Paragraph(f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}", styles["Normal"]))
         story.append(Spacer(1, 20))
 
         # Processing activities table

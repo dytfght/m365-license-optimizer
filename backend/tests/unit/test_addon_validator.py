@@ -1,7 +1,7 @@
 """
 Unit tests for Add-on Validator Service
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -125,7 +125,7 @@ class TestAddonValidator:
     ):
         """Test validation with unavailable mapping (expired)"""
         mock_compatibility_mapping.is_available.return_value = False
-        mock_compatibility_mapping.expiration_date = datetime.utcnow() - timedelta(
+        mock_compatibility_mapping.expiration_date = datetime.now(timezone.utc) - timedelta(
             days=1
         )
         validator.addon_repo.get_specific_mapping = AsyncMock(

@@ -2,7 +2,7 @@
 Unit tests for GdprService (LOT 10)
 Tests consent management, data export, and right to erasure.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -72,7 +72,7 @@ class TestGdprService:
         mock_tenant = MagicMock()
         mock_tenant.id = tenant_id
         mock_tenant.gdpr_consent = True
-        mock_tenant.gdpr_consent_date = datetime.utcnow()
+        mock_tenant.gdpr_consent_date = datetime.now(timezone.utc)
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_tenant
@@ -129,8 +129,8 @@ class TestGdprService:
         mock_user.office_location = "HQ"
         mock_user.account_enabled = True
         mock_user.member_of_groups = ["Group1"]
-        mock_user.created_at = datetime.utcnow()
-        mock_user.updated_at = datetime.utcnow()
+        mock_user.created_at = datetime.now(timezone.utc)
+        mock_user.updated_at = datetime.now(timezone.utc)
 
         # Setup mock returns for different queries
         call_count = 0

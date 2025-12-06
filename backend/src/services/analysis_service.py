@@ -1,7 +1,7 @@
 """
 Analysis Service - Core logic for license optimization
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -113,7 +113,7 @@ class AnalysisService:
             analysis = await self.analysis_repo.create_analysis(
                 tenant_id=tenant_id,
                 summary={},
-                analysis_date=datetime.utcnow(),
+                analysis_date=datetime.now(timezone.utc),
             )
 
             # Fetch all data
@@ -141,7 +141,7 @@ class AnalysisService:
                 return analysis
 
             # Fetch usage metrics for the last 28 days
-            cutoff_date = datetime.utcnow().date() - timedelta(days=28)
+            cutoff_date = datetime.now(timezone.utc).date() - timedelta(days=28)
 
             # Calculate current costs and generate recommendations
             recommendations_data = []
@@ -155,7 +155,7 @@ class AnalysisService:
                     user_id=UUID(str(user.id)),
                     period="D28",
                     start_date=cutoff_date,
-                    end_date=datetime.utcnow().date(),
+                    end_date=datetime.now(timezone.utc).date(),
                 )
 
                 # Calculate usage scores
