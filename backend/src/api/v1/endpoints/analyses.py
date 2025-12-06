@@ -77,7 +77,7 @@ async def create_analysis(
         )
 
         return AnalysisResponse(
-            id=analysis.id,
+            id=UUID(str(analysis.id)),
             tenant_client_id=analysis.tenant_client_id,
             analysis_date=analysis.analysis_date,
             status=analysis.status.value,
@@ -146,7 +146,7 @@ async def list_analyses(
 
     analysis_responses = [
         AnalysisResponse(
-            id=analysis.id,
+            id=UUID(str(analysis.id)),
             tenant_client_id=analysis.tenant_client_id,
             analysis_date=analysis.analysis_date,
             status=analysis.status.value,
@@ -207,7 +207,7 @@ async def get_analysis(
     # Build recommendation responses
     recommendation_responses = [
         RecommendationResponse(
-            id=rec.id,
+            id=UUID(str(rec.id)),
             analysis_id=rec.analysis_id,
             user_id=rec.user_id,
             current_sku=rec.current_sku,
@@ -222,7 +222,7 @@ async def get_analysis(
     ]
 
     return AnalysisDetailResponse(
-        id=analysis.id,
+        id=UUID(str(analysis.id)),
         tenant_client_id=analysis.tenant_client_id,
         analysis_date=analysis.analysis_date,
         status=analysis.status.value,
@@ -279,7 +279,7 @@ async def apply_recommendation(
             )
 
         return ApplyRecommendationResponse(
-            recommendation_id=recommendation.id,
+            recommendation_id=UUID(str(recommendation.id)),
             status=recommendation.status.value,
             message=message,
         )

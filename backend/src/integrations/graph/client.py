@@ -144,19 +144,19 @@ class GraphClient:
             logger.error("graph_api_request_failed", url=url, error=str(e))
             raise GraphAPIError(f"Network error: {str(e)}")
 
-    async def get(self, path: str, params: dict = None, accept_csv: bool = False) -> Any:
+    async def get(self, path: str, params: Optional[dict] = None, accept_csv: bool = False) -> Any:
         """GET request to Graph API"""
         return await self._make_request("GET", path, params=params, accept_csv=accept_csv)
 
-    async def post(self, path: str, json_data: dict = None) -> dict:
+    async def post(self, path: str, json_data: Optional[dict] = None) -> dict:
         """POST request to Graph API"""
         return await self._make_request("POST", path, json=json_data)
 
     async def get_paginated(
         self,
         path: str,
-        params: dict = None,
-        max_pages: int = None
+        params: Optional[dict] = None,
+        max_pages: Optional[int] = None
     ) -> list[dict]:
         """
         Get all items from paginated endpoint.
@@ -235,8 +235,8 @@ class GraphClient:
     # GR03: Get users with licenses
     async def get_users(
         self,
-        select_fields: list[str] = None,
-        filter_query: str = None
+        select_fields: Optional[list[str]] = None,
+        filter_query: Optional[str] = None
     ) -> list[dict]:
         """
         Get all users from the tenant.

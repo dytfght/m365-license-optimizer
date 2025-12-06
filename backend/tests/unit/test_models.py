@@ -62,6 +62,7 @@ class TestTenantClientModel:
 
         with pytest.raises(Exception):  # IntegrityError
             await db_session.commit()
+        await db_session.rollback()
 
 
 @pytest.mark.unit
@@ -239,3 +240,4 @@ class TestLicenseAssignmentModel:
 
         with pytest.raises(Exception):  # IntegrityError
             await db_session.commit()
+        await db_session.rollback()

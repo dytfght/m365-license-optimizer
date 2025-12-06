@@ -92,7 +92,7 @@ async def record_consent(
             "gdpr_consent_api",
             tenant_id=str(tenant_id),
             consent=request.consent_given,
-            user=current_user.user_principal_name,
+            user=current_user.get("user_principal_name"),
         )
 
         return ConsentResponse(
@@ -174,7 +174,7 @@ async def export_user_data(
         logger.info(
             "gdpr_export_api",
             user_id=str(user_id),
-            requester=current_user.user_principal_name,
+            requester=current_user.get("user_principal_name"),
         )
 
         return data
@@ -221,7 +221,7 @@ async def delete_user_data(
             "gdpr_delete_api",
             user_id=str(user_id),
             action=result["action"],
-            requester=current_user.user_principal_name,
+            requester=current_user.get("user_principal_name"),
         )
 
         return DeletionResponse(
@@ -266,7 +266,7 @@ async def generate_registry(
 
         logger.info(
             "gdpr_registry_generated",
-            requester=current_user.user_principal_name,
+            requester=current_user.get("user_principal_name"),
             size_bytes=len(pdf_content),
         )
 

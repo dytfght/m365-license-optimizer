@@ -121,13 +121,13 @@ class BackupResponse(BaseModel):
     """Response from backup operation"""
 
     success: bool = Field(..., description="Whether backup was successful")
-    backup_id: Optional[str] = Field(None, description="Unique backup identifier")
-    filename: Optional[str] = Field(None, description="Backup filename")
-    size_bytes: Optional[int] = Field(None, description="Backup file size in bytes")
-    storage_path: Optional[str] = Field(None, description="Storage path/URL")
+    backup_id: Optional[str] = Field(default=None, description="Unique backup identifier")
+    filename: Optional[str] = Field(default=None, description="Backup filename")
+    size_bytes: Optional[int] = Field(default=None, description="Backup file size in bytes")
+    storage_path: Optional[str] = Field(default=None, description="Storage path/URL")
     timestamp: str = Field(..., description="Backup timestamp")
     message: str = Field(..., description="Status message")
-    error: Optional[str] = Field(None, description="Error message if backup failed")
+    error: Optional[str] = Field(default=None, description="Error message if backup failed")
 
 
 class BackupInfo(BaseModel):

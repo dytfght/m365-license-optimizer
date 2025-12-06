@@ -42,10 +42,10 @@ class AddonCompatibilityBase(BaseModel):
         default=False, description="Requires tenant-level validation"
     )
     validation_metadata: Optional[Dict] = Field(
-        None, description="Additional validation metadata"
+        default=None, description="Additional validation metadata"
     )
     pc_metadata: Optional[Dict] = Field(
-        None, description="Partner Center specific metadata"
+        default=None, description="Partner Center specific metadata"
     )
     is_active: bool = Field(default=True, description="Whether this mapping is active")
     effective_date: Optional[datetime] = Field(
@@ -205,7 +205,7 @@ class AddonRecommendationResponse(BaseModel):
     max_quantity: Optional[int] = Field(None, description="Maximum quantity allowed")
     reason: str = Field(..., description="Reason for recommendation")
     estimated_savings: Optional[float] = Field(
-        None, description="Estimated monthly savings"
+        default=None, description="Estimated monthly savings"
     )
 
 

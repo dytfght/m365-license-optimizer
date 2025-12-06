@@ -2,7 +2,7 @@
 SKU Mapping Service
 Handles mapping between Graph API SKUs and Partner Center SKUs
 """
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 import structlog
@@ -24,7 +24,7 @@ class SkuMappingService:
         self.product_repo = ProductRepository(session)
         self.addon_repo = AddonCompatibilityRepository(session)
 
-    async def get_graph_sku_info(self, sku_id: str) -> Optional[Dict]:
+    async def get_graph_sku_info(self, sku_id: str) -> Optional[Dict[str, Any]]:
         """Get SKU information from Graph API perspective"""
         # This would typically call Graph API, but for now we'll use mock data
         # In a real implementation, this would call Microsoft Graph API
@@ -104,7 +104,7 @@ class SkuMappingService:
         graph_base_sku_id: str,
         service_type: Optional[str] = None,
         addon_category: Optional[str] = None,
-    ) -> List[Dict]:
+    ) -> List[Dict[str, Any]]:
         """Get compatible add-ons for a Graph base SKU"""
         partner_product = await self.get_partner_center_sku(graph_base_sku_id)
 
@@ -194,7 +194,7 @@ class SkuMappingService:
                 f"Add-on '{graph_addon_sku_id}' is not compatible with base '{graph_base_sku_id}' at quantity {quantity}",
             )
 
-    async def get_sku_mapping_summary(self) -> Dict:
+    async def get_sku_mapping_summary(self) -> Dict[str, Any]:
         """Get summary of SKU mappings"""
         # Get all Partner Center products
         all_products = await self.product_repo.get_all(limit=1000)
@@ -208,8 +208,8 @@ class SkuMappingService:
 
         active_mappings = sum(1 for mapping in all_mappings if mapping.is_active)
 
-        service_types = {}
-        addon_categories = {}
+        service_types: Dict[str, int] = {}
+        addon_categories: Dict[str, int] = {}
 
         for mapping in all_mappings:
             service_types[mapping.service_type] = (

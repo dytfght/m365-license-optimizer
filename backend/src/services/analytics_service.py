@@ -4,7 +4,7 @@ Analytics service for business logic
 import hashlib
 import json
 from datetime import datetime, timedelta
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,9 +23,11 @@ from ..schemas.analytics import (
     AnalyticsMetricCreate,
     AnalyticsMetricFilter,
     AnalyticsMetricResponse,
+    AnalyticsMetricUpdate,
     AnalyticsSnapshotCreate,
     AnalyticsSnapshotFilter,
     AnalyticsSnapshotResponse,
+    AnalyticsSnapshotUpdate,
     AnalyticsSummaryResponse,
     DashboardKPIsResponse,
     KPIResponse,
@@ -61,25 +63,28 @@ class AnalyticsService:
 
     async def get_metric(self, metric_id: UUID) -> Optional[AnalyticsMetricResponse]:
         """Get a specific metric by ID"""
-        metric = await self.metric_repo.get(metric_id)
+        metric = await self.metric_repo.get_by_id(metric_id)
         return AnalyticsMetricResponse.model_validate(metric) if metric else None
 
     async def get_snapshot(
         self, snapshot_id: UUID
     ) -> Optional[AnalyticsSnapshotResponse]:
         """Get a specific snapshot by ID"""
-        snapshot = await self.snapshot_repo.get(snapshot_id)
+        snapshot = await self.snapshot_repo.get_by_id(snapshot_id)
         return AnalyticsSnapshotResponse.model_validate(snapshot) if snapshot else None
 
     async def update_metric(
-        self, metric_id: UUID, update_data: AnalyticsMetricCreate
+        self, metric_id: UUID, update_data: AnalyticsMetricUpdate
     ) -> Optional[AnalyticsMetricResponse]:
         """Update an existing metric"""
-        metric = await self.metric_repo.update(metric_id, update_data)
-        return AnalyticsMetricResponse.model_validate(metric) if metric else None
+        metric = await self.metric_repo.get_by_id(metric_id)
+        if not metric:
+            return None
+        updated_metric = await self.metric_repo.update(metric, update_data)
+        return AnalyticsMetricResponse.model_validate(updated_metric)
 
     async def update_snapshot(
-        self, snapshot_id: UUID, update_data: AnalyticsSnapshotCreate
+        self, snapshot_id: UUID, update_data: AnalyticsSnapshotUpdate
     ) -> Optional[AnalyticsSnapshotResponse]:
         """Update an existing snapshot"""
         # Recalculate hash if data changed
@@ -87,16 +92,27 @@ class AnalyticsService:
             data_str = json.dumps(update_data.snapshot_data, sort_keys=True)
             update_data.data_hash = hashlib.sha256(data_str.encode()).hexdigest()
 
-        snapshot = await self.snapshot_repo.update(snapshot_id, update_data)
-        return AnalyticsSnapshotResponse.model_validate(snapshot) if snapshot else None
+        snapshot = await self.snapshot_repo.get_by_id(snapshot_id)
+        if not snapshot:
+            return None
+        updated_snapshot = await self.snapshot_repo.update(snapshot, update_data)
+        return AnalyticsSnapshotResponse.model_validate(updated_snapshot)
 
     async def delete_metric(self, metric_id: UUID) -> bool:
         """Delete a metric"""
-        return await self.metric_repo.delete(metric_id)
+        metric = await self.metric_repo.get_by_id(metric_id)
+        if not metric:
+            return False
+        await self.metric_repo.delete(metric)
+        return True
 
     async def delete_snapshot(self, snapshot_id: UUID) -> bool:
         """Delete a snapshot"""
-        return await self.snapshot_repo.delete(snapshot_id)
+        snapshot = await self.snapshot_repo.get_by_id(snapshot_id)
+        if not snapshot:
+            return False
+        await self.snapshot_repo.delete(snapshot)
+        return True
 
     async def get_metrics_by_tenant(
         self,
@@ -107,22 +123,28 @@ class AnalyticsService:
     ) -> Sequence[AnalyticsMetricResponse]:
         """Get metrics for a specific tenant"""
         if metric_type:
-            metrics = await self.metric_repo.get_by_tenant_and_type(
+            single_metric = await self.metric_repo.get_by_tenant_and_type(
                 tenant_client_id, metric_type, period_start
             )
-            return [
-                AnalyticsMetricResponse.model_validate(m) for m in [metrics] if metrics
-            ]
+            resolved_metrics: Sequence[AnalyticsMetric] = (
+                [single_metric] if single_metric else []
+            )
         elif period_start and period_end:
-            metrics = await self.metric_repo.get_metrics_by_period(
+            resolved_metrics = await self.metric_repo.get_metrics_by_period(
                 tenant_client_id, period_start, period_end
             )
         else:
             # Get all metrics for tenant
-            filter_data = AnalyticsMetricFilter(tenant_client_id=tenant_client_id)
-            metrics = await self.metric_repo.filter_metrics(filter_data)
+            filter_data = AnalyticsMetricFilter(
+                tenant_client_id=tenant_client_id,
+                metric_type=None,
+                metric_name=None,
+                period_start=datetime.min,  # Use min/max or make optional in schema
+                period_end=datetime.max,
+            )
+            resolved_metrics = await self.metric_repo.filter_metrics(filter_data)
 
-        return [AnalyticsMetricResponse.model_validate(m) for m in metrics]
+        return [AnalyticsMetricResponse.model_validate(m) for m in resolved_metrics]
 
     async def get_snapshots_by_tenant(
         self,
@@ -142,20 +164,24 @@ class AnalyticsService:
                 if snapshot
             ]
         elif start_date and end_date:
-            snapshots = await self.snapshot_repo.get_snapshots_by_date_range(
+            resolved_snapshots = await self.snapshot_repo.get_snapshots_by_date_range(
                 tenant_client_id,
                 start_date,
                 end_date,
                 [snapshot_type] if snapshot_type else None,
             )
         else:
-            # Get all snapshots for tenant
-            filter_data = AnalyticsSnapshotFilter(tenant_client_id=tenant_client_id)
-            if snapshot_type:
-                filter_data.snapshot_type = snapshot_type
-            snapshots = await self.snapshot_repo.filter_snapshots(filter_data)
+            filter_data = AnalyticsSnapshotFilter(
+                tenant_client_id=tenant_client_id,
+                snapshot_type=snapshot_type,
+                snapshot_date=start_date,
+                snapshot_date_to=end_date,
+            )
+            resolved_snapshots = await self.snapshot_repo.filter_snapshots(filter_data)
 
-        return [AnalyticsSnapshotResponse.model_validate(s) for s in snapshots]
+        return [
+            AnalyticsSnapshotResponse.model_validate(s) for s in resolved_snapshots
+        ]
 
     async def filter_metrics(
         self, filters: AnalyticsMetricFilter
@@ -183,14 +209,14 @@ class AnalyticsService:
         # Get available metric and snapshot types
         from sqlalchemy import distinct, select
 
-        metric_types_query = await self.metric_repo.session.execute(
+        metric_types_query: Any = await self.metric_repo.session.execute(
             select(distinct(AnalyticsMetric.metric_type)).where(
                 AnalyticsMetric.tenant_client_id == tenant_client_id
             )
         )
         available_metric_types = [row[0] for row in metric_types_query.all()]
 
-        snapshot_types_query = await self.snapshot_repo.session.execute(
+        snapshot_types_query: Any = await self.snapshot_repo.session.execute(
             select(distinct(AnalyticsSnapshot.snapshot_type)).where(
                 AnalyticsSnapshot.tenant_client_id == tenant_client_id
             )

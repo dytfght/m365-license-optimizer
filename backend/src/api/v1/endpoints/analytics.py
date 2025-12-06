@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....api.deps import get_current_user
 from ....core.database import get_db
+from ....models.analytics import MetricType, SnapshotType
 from ....models.user import User
 from ....schemas.analytics import (
     AnalyticsMetricCreate,
@@ -58,7 +59,7 @@ async def get_metrics(
     tenant_client_id: Optional[UUID] = Query(
         None, description="Filter by tenant client ID"
     ),
-    metric_type: Optional[str] = Query(None, description="Filter by metric type"),
+    metric_type: Optional[MetricType] = Query(None, description="Filter by metric type"),
     metric_name: Optional[str] = Query(
         None, description="Filter by metric name (partial match)"
     ),
@@ -106,7 +107,7 @@ async def get_metrics(
     paginated_metrics = metrics[start_idx:end_idx]
 
     return AnalyticsMetricListResponse(
-        metrics=paginated_metrics,
+        metrics=list(paginated_metrics),
         total=total,
         page=page,
         page_size=page_size,
@@ -232,7 +233,7 @@ async def get_snapshots(
     tenant_client_id: Optional[UUID] = Query(
         None, description="Filter by tenant client ID"
     ),
-    snapshot_type: Optional[str] = Query(None, description="Filter by snapshot type"),
+    snapshot_type: Optional[SnapshotType] = Query(None, description="Filter by snapshot type"),
     snapshot_date: Optional[datetime] = Query(
         None, description="Filter by snapshot date (from, ISO format)"
     ),
@@ -276,7 +277,7 @@ async def get_snapshots(
     paginated_snapshots = snapshots[start_idx:end_idx]
 
     return AnalyticsSnapshotListResponse(
-        snapshots=paginated_snapshots,
+        snapshots=list(paginated_snapshots),
         total=total,
         page=page,
         page_size=page_size,

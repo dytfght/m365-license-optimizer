@@ -266,6 +266,7 @@ async def validate_addon_compatibility(
             addon_sku_id=request.addon_sku_id,
             base_sku_id=request.base_sku_id,
             quantity=request.quantity,
+            validation_requirements={},  # Provide default or actual requirements if available
         )
 
     except Exception as e:
@@ -361,7 +362,7 @@ async def list_compatibility_mappings(
 
         return [
             AddonCompatibilityResponse(
-                id=mapping.id,
+                id=UUID(str(mapping.id)),
                 addon_sku_id=mapping.addon_sku_id,
                 addon_product_id=mapping.addon_product_id,
                 base_sku_id=mapping.base_sku_id,
@@ -432,7 +433,7 @@ async def create_compatibility_mapping(
         )
 
         return AddonCompatibilityResponse(
-            id=mapping.id,
+            id=UUID(str(mapping.id)),
             addon_sku_id=mapping.addon_sku_id,
             addon_product_id=mapping.addon_product_id,
             base_sku_id=mapping.base_sku_id,
@@ -509,7 +510,7 @@ async def update_compatibility_mapping(
         )
 
         return AddonCompatibilityResponse(
-            id=mapping.id,
+            id=UUID(str(mapping.id)),
             addon_sku_id=mapping.addon_sku_id,
             addon_product_id=mapping.addon_product_id,
             base_sku_id=mapping.base_sku_id,

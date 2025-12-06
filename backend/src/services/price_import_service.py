@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple, TypedDict
 
 import aiofiles
 import structlog
@@ -16,7 +16,27 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import MicrosoftPrice, MicrosoftProduct
+from ..models.microsoft_price import MicrosoftPrice
+from ..models.microsoft_product import MicrosoftProduct
+
+
+class ImportStats(TypedDict):
+    products: int
+    prices: int
+    errors: List[str]
+    products_skipped: int
+    prices_skipped: int
+    batches_processed: int
+    total_time: float
+
+class BatchStats(TypedDict, total=False):
+    products: int
+    prices: int
+    errors: List[str]
+    products_skipped: int
+    prices_skipped: int
+    batches_processed: int
+    total_time: float
 
 logger = structlog.get_logger(__name__)
 
@@ -45,10 +65,11 @@ class PriceImportService:
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV file not found: {csv_path}")
 
-        stats: dict[str, Any] = {
+        stats: ImportStats = {
             "products": 0, "prices": 0, "errors": [],
             "products_skipped": 0, "prices_skipped": 0,
-            "batches_processed": 0
+            "batches_processed": 0,
+            "total_time": 0.0
         }
 
         self.logger.info("csv_import_started_v2", file=str(csv_path))
@@ -62,9 +83,13 @@ class PriceImportService:
             batch_stats = await self._process_csv_streaming(csv_path, existing_products)
 
             # Fusionner les statistiques
-            for key in stats:
-                if key in batch_stats:
-                    stats[key] += batch_stats[key]
+            # Fusionner les statistiques
+            stats["products"] += batch_stats.get("products", 0)
+            stats["prices"] += batch_stats.get("prices", 0)
+            stats["products_skipped"] += batch_stats.get("products_skipped", 0)
+            stats["prices_skipped"] += batch_stats.get("prices_skipped", 0)
+            stats["batches_processed"] += batch_stats.get("batches_processed", 0)
+            stats["errors"].extend(batch_stats.get("errors", []))
 
             await self.db.commit()
 
@@ -84,7 +109,7 @@ class PriceImportService:
             self.logger.error("csv_import_failed_v2", error=str(e), exc_info=True)
             raise
 
-        return stats
+        return dict(stats)
 
     async def _load_existing_products(self) -> Set[Tuple[str, str]]:
         """
@@ -94,15 +119,17 @@ class PriceImportService:
         result = await self.db.execute(stmt)
 
         # Retourner un set de tuples pour accès O(1)
-        return set(result.all())
+        # Explicit typing/casting for mypy
+        rows = result.all()
+        return set((str(row[0]), str(row[1])) for row in rows)
 
     async def _process_csv_streaming(
         self, csv_path: Path, existing_products: Set[Tuple[str, str]]
-    ) -> dict[str, Any]:
+    ) -> BatchStats:
         """
         Traiter le CSV en streaming avec batch processing optimal
         """
-        stats = {
+        stats: BatchStats = {
             "products": 0, "prices": 0, "errors": [],
             "products_skipped": 0, "prices_skipped": 0,
             "batches_processed": 0, "total_time": 0
@@ -128,7 +155,10 @@ class PriceImportService:
                 line_num += 1
                 try:
                     # Parser la ligne
-                    row = dict(zip(fieldnames, csv.reader([line]).__next__()))
+                    # Ensure fieldnames is iterable
+                    headers = fieldnames if fieldnames else []
+                    values = csv.reader([line]).__next__()
+                    row = dict(zip(headers, values))
 
                     # Créer les objets
                     product = self._parse_product(row)

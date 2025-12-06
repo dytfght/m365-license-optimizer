@@ -390,7 +390,7 @@ class ReportService:
         """Prepare departments breakdown"""
 
         # Group by department and calculate metrics
-        department_groups = {}
+        department_groups: Dict[str, Dict[str, Any]] = {}
 
         for rec in recommendations:
             # Safely get user and department
@@ -402,9 +402,9 @@ class ReportService:
                 department_groups[dept] = {
                     "name": dept,
                     "user_count": 0,
-                    "current_cost": 0,
-                    "target_cost": 0,
-                    "annual_savings": 0,
+                    "current_cost": 0.0,
+                    "target_cost": 0.0,
+                    "annual_savings": 0.0,
                 }
 
             department_groups[dept]["user_count"] += 1

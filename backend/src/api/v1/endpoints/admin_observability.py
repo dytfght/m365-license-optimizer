@@ -254,8 +254,8 @@ async def trigger_backup(
 
     # Azure Blob Storage backup using Managed Identity
     try:
-        from azure.identity import DefaultAzureCredential
-        from azure.storage.blob import BlobServiceClient
+        from azure.identity import DefaultAzureCredential  # type: ignore
+        from azure.storage.blob import BlobServiceClient  # type: ignore
 
         # Create blob service client using Managed Identity
         account_url = f"https://{settings.AZURE_STORAGE_ACCOUNT}.blob.core.windows.net"

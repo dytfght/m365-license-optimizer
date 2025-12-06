@@ -65,12 +65,12 @@ class ChartGenerator:
 
         for i, item in enumerate(data):
             label = item.get("license_name", f"License {i+1}")
-            size = item.get("user_count", 0)
+            user_count = item.get("user_count", 0)
             percentage = item.get("percentage", 0)
 
-            if size > 0:  # Only include non-zero items
+            if user_count > 0:  # Only include non-zero items
                 labels.append(f"{label}\n{percentage:.1f}%")
-                sizes.append(size)
+                sizes.append(user_count)
                 colors.append(self.MICROSOFT_COLORS[i % len(self.MICROSOFT_COLORS)])
 
         if not sizes:
@@ -468,7 +468,7 @@ class ChartGenerator:
                 autopct="%1.1f%%",
                 startangle=90,
                 wedgeprops=dict(width=0.5),
-            )
+            )  # type: ignore[misc]
             ax2.set_title(
                 "Répartition licences", fontsize=10, color=self.MICROSOFT_COLORS[0]
             )

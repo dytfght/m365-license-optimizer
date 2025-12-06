@@ -202,7 +202,7 @@ class LoggingService:
         Returns:
             Number of deleted logs
         """
-        retention_days = days or getattr(settings, "LOG_RETENTION_DAYS", 90)
+        retention_days = float(days or getattr(settings, "LOG_RETENTION_DAYS", 90) or 90)
         cutoff_date = datetime.utcnow() - timedelta(days=retention_days)
 
         # Count logs to be deleted

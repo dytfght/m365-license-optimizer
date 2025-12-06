@@ -115,7 +115,7 @@ class ReportRepository(BaseRepository[Report]):
         result = await self.session.execute(
             select(func.count(Report.id)).where(Report.tenant_client_id == tenant_id)
         )
-        return result.scalar()
+        return result.scalar() or 0
 
     async def count_reports_by_analysis(self, analysis_id: UUID) -> int:
         """Count total reports for an analysis"""
@@ -123,7 +123,7 @@ class ReportRepository(BaseRepository[Report]):
         result = await self.session.execute(
             select(func.count(Report.id)).where(Report.analysis_id == analysis_id)
         )
-        return result.scalar()
+        return result.scalar() or 0
 
     async def get_reports_by_date_range(
         self,

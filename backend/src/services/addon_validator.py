@@ -3,7 +3,7 @@ Add-on Validator Service
 Validates add-on compatibility and business rules
 """
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -312,7 +312,7 @@ class AddonValidator:
 
     async def validate_bulk_addons(
         self,
-        addons: List[Dict[str, any]],
+        addons: List[Dict[str, Any]],
         base_sku_id: str,
         tenant_id: Optional[str] = None,
         domain_name: Optional[str] = None,
@@ -351,7 +351,7 @@ class AddonValidator:
 
     async def get_validation_requirements(
         self, addon_sku_id: str, base_sku_id: str
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         Get validation requirements for an add-on
 
@@ -366,7 +366,7 @@ class AddonValidator:
                 "reason": "No compatibility mapping found",
             }
 
-        requirements = {
+        requirements: Dict[str, Any] = {
             "requires_validation": True,
             "min_quantity": mapping.min_quantity,
             "max_quantity": mapping.max_quantity,
@@ -403,12 +403,12 @@ class AddonValidator:
 
         return requirements
 
-    async def get_sku_validation_summary(self, sku_id: str) -> Dict[str, any]:
+    async def get_sku_validation_summary(self, sku_id: str) -> Dict[str, Any]:
         """Get validation summary for all add-ons compatible with a SKU"""
         # Get all compatible add-ons
         compatible_addons = await self.addon_repo.get_compatible_addons(sku_id)
 
-        summary = {
+        summary: Dict[str, Any] = {
             "total_compatible_addons": len(compatible_addons),
             "active_mappings": sum(1 for addon in compatible_addons if addon.is_active),
             "validation_requirements": {},
@@ -426,7 +426,7 @@ class AddonValidator:
             summary["addon_categories"].add(addon.addon_category)
 
         # Convert sets to lists for JSON serialization
-        summary["service_types"] = list(summary["service_types"])
-        summary["addon_categories"] = list(summary["addon_categories"])
+        summary["service_types"] = list(summary["service_types"])  # type: ignore
+        summary["addon_categories"] = list(summary["addon_categories"])  # type: ignore
 
         return summary

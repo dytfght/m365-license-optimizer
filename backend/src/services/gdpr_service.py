@@ -4,7 +4,7 @@ Handles consent management, data export, and right to be forgotten.
 """
 from datetime import datetime
 from io import BytesIO
-from typing import Any
+from typing import Any, Dict
 from uuid import UUID
 
 import structlog
@@ -180,22 +180,27 @@ class GdprService:
                 for la in licenses
             ],
             "usage_metrics": [
+
                 {
-                    "service_name": um.service_name,
-                    "activity_date": um.activity_date.isoformat() if um.activity_date else None,
-                    "is_active": um.is_active,
-                    "usage_count": um.usage_count,
+                    "period": um.period,
+                    "report_date": um.report_date.isoformat() if um.report_date else None,
+                    "last_seen": um.last_seen_date.isoformat() if um.last_seen_date else None,
+                    "storage_used": um.storage_used_bytes,
+                    "email_activity": um.email_activity,
+                    "teams_activity": um.teams_activity,
+                    "onedrive_activity": um.onedrive_activity,
+                    "sharepoint_activity": um.sharepoint_activity,
                 }
                 for um in usage_metrics
             ],
             "recommendations": [
                 {
                     "id": str(r.id),
-                    "recommendation_type": r.recommendation_type.value if r.recommendation_type else None,
                     "status": r.status.value if r.status else None,
-                    "current_sku_id": r.current_sku_id,
-                    "recommended_sku_id": r.recommended_sku_id,
-                    "estimated_savings": float(r.estimated_savings) if r.estimated_savings else None,
+                    "current_sku": r.current_sku,
+                    "recommended_sku": r.recommended_sku,
+                    "savings_monthly": float(r.savings_monthly),
+                    "reason": r.reason,
                 }
                 for r in recommendations
             ],
@@ -238,7 +243,9 @@ class GdprService:
         users_data = []
         for user in users:
             try:
-                user_data = await self.export_user_data(user.id)
+                # Cast to UUID explicitly to satisfy MyPy
+                uid = UUID(str(user.id))
+                user_data = await self.export_user_data(uid)
                 users_data.append(user_data)
             except ValueError:
                 continue
@@ -286,7 +293,7 @@ class GdprService:
         if not user:
             raise ValueError(f"User {user_id} not found")
 
-        summary = {
+        summary: Dict[str, Any] = {
             "user_id": str(user_id),
             "action": "anonymized" if anonymize else "deleted",
             "timestamp": datetime.utcnow().isoformat(),

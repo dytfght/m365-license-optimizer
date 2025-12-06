@@ -43,7 +43,7 @@ class ReportResponse(BaseModel):
 
     # Computed fields
     download_url: Optional[str] = Field(
-        None, description="URL to download the report file"
+        default=None, description="URL to download the report file"
     )
 
     class Config:

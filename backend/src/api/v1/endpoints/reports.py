@@ -330,7 +330,7 @@ async def download_report(
 
         # Return download information
         return ReportDownloadResponse(
-            report_id=str(report.id),
+            report_id=UUID(str(report.id)),
             file_name=report.file_name,
             file_size=report.file_size_bytes,
             mime_type=report.mime_type,
