@@ -68,3 +68,9 @@ seaborn==0.12.2
 pyotp==2.9.0
 argon2-cffi==23.1.0
 bandit==1.7.6
+
+# Observability & Deployment (LOT11)
+psutil==5.9.7
+azure-identity==1.15.0
+azure-keyvault-secrets==4.7.0
+azure-storage-blob==12.19.0

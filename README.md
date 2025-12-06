@@ -110,6 +110,7 @@ m365-license-optimizer/
 | **8** | Partner Center Mapping & Add-ons | ✅ Terminé |
 | **9** | Frontend React/Next.js | ✅ Terminé |
 | **10** | Sécurité, RGPD & Journalisation | ✅ Terminé |
+| **11** | Déploiement, Exploitation & Observabilité | ✅ Terminé |
 
 ### 🎯 Fonctionnalités principales
 
@@ -179,6 +180,13 @@ GET    /api/v1/admin/logs                   # Liste logs filtrée
 GET    /api/v1/admin/logs/{id}              # Détails log
 POST   /api/v1/admin/logs/purge             # Purge RGPD (90j)
 GET    /api/v1/admin/logs/statistics/summary # Stats erreurs
+```
+
+#### Observabilité & Déploiement (Lot 11)
+```
+GET    /api/v1/admin/metrics           # Métriques système (CPU, RAM, Disk)
+GET    /api/v1/admin/health/extended   # Health check étendu (DB, Redis, Azure)
+POST   /api/v1/admin/backup            # Déclenchement backup manuel
 ```
 
 ## 🧪 Tests

@@ -195,3 +195,39 @@ async def get_current_tenant_id(
         )
 
     return tenant_id
+
+
+async def get_current_admin_user(
+    token_payload: Annotated[TokenPayload, Depends(get_current_token_payload)],
+) -> dict:
+    """
+    Validate admin access from token.
+    
+    For LOT 11 observability endpoints, we allow any authenticated user
+    with a valid token to access admin endpoints.
+    
+    In production, this should check for admin role in the token.
+    
+    Args:
+        token_payload: Validated token payload
+        
+    Returns:
+        Dictionary with token claims
+        
+    Raises:
+        HTTPException: If user is not authorized
+    """
+    # For now, any authenticated user can access admin endpoints
+    # In production, add role-based access control here
+    if not token_payload.sub:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    
+    return {
+        "sub": token_payload.sub,
+        "email": token_payload.email,
+        "tenants": token_payload.tenants,
+    }
+

@@ -4,6 +4,7 @@ API v1 router aggregation
 from fastapi import APIRouter
 
 from .endpoints import (
+    admin_observability,
     admin_sku_mapping,
     analyses,
     analytics,
@@ -37,6 +38,9 @@ api_router.include_router(
 api_router.include_router(users.router)
 api_router.include_router(gdpr.router)  # LOT10: GDPR compliance endpoints
 api_router.include_router(logs.router)  # LOT10: Admin logs endpoints
+api_router.include_router(
+    admin_observability.router
+)  # LOT11: Observability & metrics endpoints
 
 # Health endpoints are included at root level in main.py
 # but we can also include them here for /api/v1/health

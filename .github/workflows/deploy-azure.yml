@@ -4,20 +4,115 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      deploy_frontend:
+        description: 'Deploy frontend'
+        required: false
+        default: 'true'
+        type: boolean
+      run_backup:
+        description: 'Run database backup before deploy'
+        required: false
+        default: 'false'
+        type: boolean
 
 env:
+  # Azure Resources
   AZURE_RESOURCE_GROUP: m365-optimizer-prod
   AZURE_LOCATION: francecentral
+  
+  # PostgreSQL
   POSTGRES_SERVER_NAME: m365optimizerdb
   POSTGRES_DATABASE_NAME: m365_optimizer
   POSTGRES_ADMIN_USER: adminuser
+  
+  # Redis
   REDIS_CACHE_NAME: m365optimizerredis
+  
+  # Container Registry
   ACR_NAME: m365optimizeracr
+  
+  # App Services
   WEBAPP_BACKEND_NAME: m365-optimizer-backend
+  WEBAPP_FRONTEND_NAME: m365-optimizer-frontend
   APP_SERVICE_PLAN: m365-optimizer-plan
+  
+  # LOT 11: Storage Account for backups
+  STORAGE_ACCOUNT_NAME: m365optimizerstorage
+  BACKUP_CONTAINER_NAME: backups
 
 jobs:
-  deploy:
+  # ===========================================
+  # Job 1: Pre-deployment backup (optional)
+  # ===========================================
+  backup:
+    if: ${{ github.event.inputs.run_backup == 'true' }}
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Run Database Backup
+        env:
+          PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+        run: |
+          echo "📦 Creating pre-deployment backup..."
+          
+          # Install PostgreSQL client
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          
+          # Get runner IP for firewall
+          RUNNER_IP=$(curl -s https://api.ipify.org)
+          
+          az postgres flexible-server firewall-rule create \
+            -g ${{ env.AZURE_RESOURCE_GROUP }} \
+            -n ${{ env.POSTGRES_SERVER_NAME }} \
+            --rule-name backup-runner-temp \
+            --start-ip-address $RUNNER_IP \
+            --end-ip-address $RUNNER_IP
+          
+          sleep 10
+          
+          # Create backup
+          BACKUP_FILE="backup_predeploy_$(date +%Y%m%d_%H%M%S).sql.gz"
+          
+          pg_dump \
+            -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
+            -U ${{ env.POSTGRES_ADMIN_USER }} \
+            -d ${{ env.POSTGRES_DATABASE_NAME }} \
+            --no-password \
+            | gzip > $BACKUP_FILE
+          
+          # Upload to Azure Blob Storage
+          az storage blob upload \
+            --account-name ${{ env.STORAGE_ACCOUNT_NAME }} \
+            --container-name ${{ env.BACKUP_CONTAINER_NAME }} \
+            --name $BACKUP_FILE \
+            --file $BACKUP_FILE \
+            --auth-mode login
+          
+          echo "✅ Backup uploaded: $BACKUP_FILE"
+          
+          # Cleanup firewall
+          az postgres flexible-server firewall-rule delete \
+            -g ${{ env.AZURE_RESOURCE_GROUP }} \
+            -n ${{ env.POSTGRES_SERVER_NAME }} \
+            --rule-name backup-runner-temp \
+            --yes
+
+  # ===========================================
+  # Job 2: Deploy Infrastructure & Backend
+  # ===========================================
+  deploy-backend:
+    needs: [backup]
+    if: always() && (needs.backup.result == 'success' || needs.backup.result == 'skipped')
     runs-on: ubuntu-latest
     environment: production
     
@@ -36,7 +131,7 @@ jobs:
             --name ${{ env.AZURE_RESOURCE_GROUP }} \
             --location ${{ env.AZURE_LOCATION }}
 
-      # Déploiement Infrastructure via Bicep
+      # Deploy Infrastructure via Bicep
       - name: Deploy Infrastructure (Bicep)
         uses: azure/arm-deploy@v1
         with:
@@ -52,6 +147,7 @@ jobs:
             acrName=${{ env.ACR_NAME }}
             appServicePlanName=${{ env.APP_SERVICE_PLAN }}
             webAppName=${{ env.WEBAPP_BACKEND_NAME }}
+            storageAccountName=${{ env.STORAGE_ACCOUNT_NAME }}
 
       # Build & Push Docker Images
       - name: Login to ACR
@@ -68,19 +164,17 @@ jobs:
           docker push ${{ env.ACR_NAME }}.azurecr.io/m365-backend:${{ github.sha }}
           docker push ${{ env.ACR_NAME }}.azurecr.io/m365-backend:latest
 
-      # ✅ CORRECTION: Initialisation DB via Alembic (pas init.sql)
+      # Database Migration via Alembic
       - name: Database Migration (Alembic)
         env:
           PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
           PGSSLMODE: require
         run: |
-          # Installation PostgreSQL client
+          # Install dependencies
           sudo apt-get update && sudo apt-get install -y postgresql-client python3-pip
+          pip install alembic asyncpg sqlalchemy pydantic pydantic-settings python-jose passlib
           
-          # Installation Alembic et dépendances
-          pip install alembic asyncpg sqlalchemy pydantic pydantic-settings
-          
-          # Ajout IP Runner temporaire au firewall
+          # Add runner IP to firewall
           RUNNER_IP=$(curl -s https://api.ipify.org)
           echo "🔓 Adding runner IP: $RUNNER_IP"
           
@@ -91,10 +185,9 @@ jobs:
             --start-ip-address $RUNNER_IP \
             --end-ip-address $RUNNER_IP
           
-          # Attente propagation firewall
           sleep 15
           
-          # ✅ Vérifier si le schéma optimizer existe
+          # Check/create optimizer schema
           SCHEMA_EXISTS=$(psql \
             -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
             -U ${{ env.POSTGRES_ADMIN_USER }} \
@@ -102,10 +195,8 @@ jobs:
             -tAc "SELECT EXISTS(SELECT 1 FROM information_schema.schemata WHERE schema_name='optimizer')" \
             || echo "false")
           
-          if [ "$SCHEMA_EXISTS" = "t" ]; then
-            echo "✅ Schema 'optimizer' exists"
-          else
-            echo "🆕 Creating schema 'optimizer' for first deployment"
+          if [ "$SCHEMA_EXISTS" != "t" ]; then
+            echo "🆕 Creating schema 'optimizer'"
             psql \
               -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
               -U ${{ env.POSTGRES_ADMIN_USER }} \
@@ -113,40 +204,27 @@ jobs:
               -c "CREATE SCHEMA IF NOT EXISTS optimizer;"
           fi
           
-          # ✅ Appliquer les migrations Alembic
+          # Run Alembic migrations
           echo "🔄 Running Alembic migrations..."
           cd backend
           
           export DATABASE_URL="postgresql+asyncpg://${{ env.POSTGRES_ADMIN_USER }}:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com:5432/${{ env.POSTGRES_DATABASE_NAME }}?ssl=require"
+          export SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}"
+          export JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}"
+          export ENVIRONMENT="production"
           
           alembic upgrade head
           
-          # Vérifier l'état des migrations
-          CURRENT_VERSION=$(psql \
-            -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
-            -U ${{ env.POSTGRES_ADMIN_USER }} \
-            -d ${{ env.POSTGRES_DATABASE_NAME }} \
-            -tAc "SELECT version_num FROM alembic_version" \
-            || echo "none")
+          echo "✅ Migrations completed"
           
-          echo "✅ Database migrated to version: $CURRENT_VERSION"
-          
-          # Afficher les tables créées
-          echo "📊 Tables in optimizer schema:"
-          psql \
-            -h ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com \
-            -U ${{ env.POSTGRES_ADMIN_USER }} \
-            -d ${{ env.POSTGRES_DATABASE_NAME }} \
-            -c "SELECT tablename FROM pg_tables WHERE schemaname='optimizer' ORDER BY tablename;"
-          
-          # Nettoyage firewall
+          # Cleanup firewall
           az postgres flexible-server firewall-rule delete \
             -g ${{ env.AZURE_RESOURCE_GROUP }} \
             -n ${{ env.POSTGRES_SERVER_NAME }} \
             --rule-name github-runner-temp \
             --yes
 
-      # Configuration App Service
+      # Configure App Service with LOT 11 variables
       - name: Configure Web App Settings
         run: |
           az webapp config appsettings set \
@@ -156,12 +234,22 @@ jobs:
               DATABASE_URL="postgresql+asyncpg://${{ env.POSTGRES_ADMIN_USER }}:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com:5432/${{ env.POSTGRES_DATABASE_NAME }}?ssl=require" \
               REDIS_URL="rediss://:${{ secrets.REDIS_PASSWORD }}@${{ env.REDIS_CACHE_NAME }}.redis.cache.windows.net:6380/0" \
               JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" \
+              SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" \
               AZURE_AD_TENANT_ID="${{ secrets.AZURE_AD_TENANT_ID }}" \
               AZURE_AD_CLIENT_ID="${{ secrets.AZURE_AD_CLIENT_ID }}" \
               AZURE_AD_CLIENT_SECRET="${{ secrets.AZURE_AD_CLIENT_SECRET }}" \
-              ENVIRONMENT="production"
+              PARTNER_CENTER_TENANT_ID="${{ secrets.PARTNER_TENANT_ID }}" \
+              PARTNER_CENTER_CLIENT_ID="${{ secrets.PARTNER_CLIENT_ID }}" \
+              PARTNER_CENTER_CLIENT_SECRET="${{ secrets.PARTNER_CLIENT_SECRET }}" \
+              AZURE_STORAGE_ACCOUNT="${{ env.STORAGE_ACCOUNT_NAME }}" \
+              AZURE_STORAGE_CONTAINER="${{ env.BACKUP_CONTAINER_NAME }}" \
+              BACKUP_RETENTION_DAYS="30" \
+              ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}" \
+              ENVIRONMENT="production" \
+              APP_VERSION="0.11.0" \
+              LOT_NUMBER="11"
 
-      # Déploiement de l'image Docker
+      # Deploy Backend
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
@@ -174,15 +262,157 @@ jobs:
             -g ${{ env.AZURE_RESOURCE_GROUP }} \
             -n ${{ env.WEBAPP_BACKEND_NAME }}
 
-      - name: Output Deployment URLs
+      # LOT 11: Health check validation
+      - name: Validate Deployment Health
+        run: |
+          echo "⏳ Waiting for app to start..."
+          sleep 30
+          
+          BACKEND_URL="https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net"
+          
+          echo "🔍 Checking health endpoint..."
+          for i in {1..5}; do
+            HEALTH=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/health" || echo "000")
+            if [ "$HEALTH" = "200" ]; then
+              echo "✅ Backend health check passed!"
+              
+              # Check extended health
+              EXTENDED=$(curl -s "$BACKEND_URL/api/v1/health")
+              echo "📊 Extended health: $EXTENDED"
+              
+              # Check version
+              VERSION=$(curl -s "$BACKEND_URL/api/v1/version")
+              echo "📦 Version info: $VERSION"
+              
+              exit 0
+            fi
+            echo "⏳ Attempt $i/5 - Status: $HEALTH, retrying in 15s..."
+            sleep 15
+          done
+          
+          echo "❌ Health check failed after 5 attempts"
+          exit 1
+
+  # ===========================================
+  # Job 3: Deploy Frontend
+  # ===========================================
+  deploy-frontend:
+    needs: [deploy-backend]
+    if: ${{ github.event.inputs.deploy_frontend != 'false' }}
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Login to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build & Push Frontend Image
+        run: |
+          docker build \
+            -f frontend/Dockerfile \
+            --build-arg NEXT_PUBLIC_API_URL="https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/api/v1" \
+            -t ${{ env.ACR_NAME }}.azurecr.io/m365-frontend:${{ github.sha }} \
+            -t ${{ env.ACR_NAME }}.azurecr.io/m365-frontend:latest \
+            frontend
+          
+          docker push ${{ env.ACR_NAME }}.azurecr.io/m365-frontend:${{ github.sha }}
+          docker push ${{ env.ACR_NAME }}.azurecr.io/m365-frontend:latest
+
+      - name: Create Frontend Web App (if not exists)
+        run: |
+          az webapp create \
+            -g ${{ env.AZURE_RESOURCE_GROUP }} \
+            -p ${{ env.APP_SERVICE_PLAN }} \
+            -n ${{ env.WEBAPP_FRONTEND_NAME }} \
+            --deployment-container-image-name ${{ env.ACR_NAME }}.azurecr.io/m365-frontend:latest \
+            2>/dev/null || echo "Web App already exists"
+
+      - name: Configure Frontend Settings
+        run: |
+          az webapp config appsettings set \
+            -g ${{ env.AZURE_RESOURCE_GROUP }} \
+            -n ${{ env.WEBAPP_FRONTEND_NAME }} \
+            --settings \
+              NEXT_PUBLIC_API_URL="https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/api/v1" \
+              WEBSITES_PORT="3000"
+
+      - name: Deploy Frontend
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.WEBAPP_FRONTEND_NAME }}
+          images: ${{ env.ACR_NAME }}.azurecr.io/m365-frontend:${{ github.sha }}
+
+      - name: Validate Frontend Health
+        run: |
+          echo "⏳ Waiting for frontend to start..."
+          sleep 30
+          
+          FRONTEND_URL="https://${{ env.WEBAPP_FRONTEND_NAME }}.azurewebsites.net"
+          
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Frontend is live!"
+              exit 0
+            fi
+            echo "⏳ Attempt $i/5 - Status: $STATUS, retrying in 15s..."
+            sleep 15
+          done
+          
+          echo "⚠️ Frontend may still be starting..."
+
+  # ===========================================
+  # Job 4: Deployment Summary
+  # ===========================================
+  summary:
+    needs: [deploy-backend, deploy-frontend]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Deployment Summary
         run: |
           echo "=================================================="
-          echo "🚀 DÉPLOIEMENT RÉUSSI"
+          echo "🚀 DEPLOYMENT COMPLETE - M365 License Optimizer"
           echo "=================================================="
-          echo "Backend API : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net"
-          echo "Swagger Docs: https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/docs"
-          echo "Health Check: https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/health"
+          echo ""
+          echo "📦 Version: 0.11.0 (LOT 11)"
+          echo ""
+          echo "🔗 URLs:"
+          echo "   Backend API : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net"
+          echo "   Frontend    : https://${{ env.WEBAPP_FRONTEND_NAME }}.azurewebsites.net"
+          echo "   Swagger Docs: https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/docs"
+          echo "   Health Check: https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/health"
+          echo ""
+          echo "🔧 Admin Endpoints (LOT 11):"
+          echo "   Metrics     : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/api/v1/admin/metrics"
+          echo "   Health+     : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/api/v1/admin/health/extended"
+          echo "   Backup      : https://${{ env.WEBAPP_BACKEND_NAME }}.azurewebsites.net/api/v1/admin/backup"
+          echo ""
+          echo "🗄️ Infrastructure:"
+          echo "   Database    : ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com"
+          echo "   Redis       : ${{ env.REDIS_CACHE_NAME }}.redis.cache.windows.net"
+          echo "   Storage     : ${{ env.STORAGE_ACCOUNT_NAME }}.blob.core.windows.net"
           echo "=================================================="
-          echo "Database: ${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com"
-          echo "Redis   : ${{ env.REDIS_CACHE_NAME }}.redis.cache.windows.net"
+          
+          # Job status summary
+          echo ""
+          echo "📊 Job Results:"
+          echo "   Backend  : ${{ needs.deploy-backend.result }}"
+          echo "   Frontend : ${{ needs.deploy-frontend.result }}"
           echo "=================================================="

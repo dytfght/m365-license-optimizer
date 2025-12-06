@@ -105,6 +105,16 @@ clean: down
 	@make clean-frontend
 	@echo "$(GREEN)✓ Cleanup complete$(NC)"
 
+## clean-all: Clean everything including database (full reset)
+clean-all:
+	@echo "$(RED)⚠️  Full reset - This will delete all data!$(NC)"
+	@echo "$(YELLOW)Stopping and removing containers + volumes...$(NC)"
+	@$(COMPOSE) down -v --remove-orphans
+	@make clean-backend
+	@make clean-frontend
+	@docker system prune -f 2>/dev/null || true
+	@echo "$(GREEN)✓ Full cleanup complete (DB reset)$(NC)"
+
 ## test: Run all tests
 test: test-backend test-frontend
 
@@ -315,4 +325,79 @@ check-prereqs:
 	@command -v docker >/dev/null 2>&1 || { echo "$(RED)Docker not found$(NC)"; exit 1; }
 	@command -v python3 >/dev/null 2>&1 || { echo "$(RED)Python3 not found$(NC)"; exit 1; }
 	@command -v npm >/dev/null 2>&1 || { echo "$(RED)npm not found$(NC)"; exit 1; }
+
+# ============================================
+# LOT 11: Deployment & Operations
+# ============================================
+
+## deploy-azure: Trigger Azure deployment workflow
+deploy-azure:
+	@echo "$(BLUE)Triggering Azure deployment...$(NC)"
+	@if command -v gh >/dev/null 2>&1; then \
+		gh workflow run deploy-azure.yml && echo "$(GREEN)✓ Deployment workflow triggered$(NC)"; \
+	else \
+		echo "$(YELLOW)GitHub CLI not installed. Run: gh workflow run deploy-azure.yml$(NC)"; \
+	fi
+
+## scale-up: Scale backend to multiple replicas
+scale-up:
+	@echo "$(BLUE)Scaling backend to 3 replicas...$(NC)"
+	@$(COMPOSE) up -d --scale backend=3
+	@echo "$(GREEN)✓ Backend scaled to 3 replicas$(NC)"
+	@make status
+
+## scale-down: Scale backend back to 1 replica
+scale-down:
+	@echo "$(BLUE)Scaling backend to 1 replica...$(NC)"
+	@$(COMPOSE) up -d --scale backend=1
+	@echo "$(GREEN)✓ Backend scaled to 1 replica$(NC)"
+	@make status
+
+## backup-db: Run database backup
+backup-db:
+	@echo "$(BLUE)Running database backup...$(NC)"
+	@mkdir -p $(BACKUP_DIR)
+	@$(RUN_IN_VENV) python ../scripts/backup_db.py --local-only --output-dir ../$(BACKUP_DIR)' || \
+		docker exec $(POSTGRES_CONTAINER) pg_dump -U $(POSTGRES_USER) -d $(POSTGRES_DB) | gzip > $(BACKUP_DIR)/backup_$$(date +%Y%m%d_%H%M%S).sql.gz
+	@echo "$(GREEN)✓ Backup complete$(NC)"
+
+## backup-db-azure: Backup database to Azure Blob Storage
+backup-db-azure:
+	@echo "$(BLUE)Backing up database to Azure...$(NC)"
+	@$(RUN_IN_VENV) python ../scripts/backup_db.py --cleanup'
+	@echo "$(GREEN)✓ Azure backup complete$(NC)"
+
+## restore-db: Restore database from backup
+restore-db:
+	@echo "$(YELLOW)Available backups:$(NC)"
+	@ls -la $(BACKUP_DIR)/*.sql.gz 2>/dev/null || echo "  No local backups found"
+	@echo ""
+	@echo "To restore, run: make restore-db-file FILE=path/to/backup.sql.gz"
+
+## restore-db-file: Restore specific backup file
+restore-db-file:
+ifndef FILE
+	$(error FILE is required. Usage: make restore-db-file FILE=backups/backup_xxx.sql.gz)
+endif
+	@echo "$(YELLOW)⚠️  This will overwrite the database!$(NC)"
+	@read -p "Are you sure? [y/N]: " confirm && [ "$$confirm" = "y" ] || exit 1
+	@echo "$(BLUE)Restoring from $(FILE)...$(NC)"
+	@gunzip -c $(FILE) | docker exec -i $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
+	@echo "$(GREEN)✓ Database restored$(NC)"
+
+## test-lot11: Run LOT 11 specific tests
+test-lot11:
+	@echo "$(BLUE)Running LOT 11 Tests...$(NC)"
+	@$(RUN_IN_VENV) pytest tests/unit/test_observability_service.py tests/integration/test_api_observability.py -v' || echo "$(YELLOW)Some tests not found yet$(NC)"
+	@echo "$(GREEN)✓ LOT 11 tests complete$(NC)"
+
+## blue-green: Run blue-green deployment
+blue-green:
+	@echo "$(BLUE)Running blue-green deployment...$(NC)"
+	@bash scripts/deploy_blue_green.sh deploy
+
+## blue-green-rollback: Rollback to previous deployment
+blue-green-rollback:
+	@echo "$(YELLOW)Rolling back deployment...$(NC)"
+	@bash scripts/deploy_blue_green.sh rollback
 

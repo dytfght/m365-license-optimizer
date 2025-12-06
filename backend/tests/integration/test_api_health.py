@@ -4,6 +4,8 @@ Integration tests for health and version endpoints
 import pytest
 from httpx import AsyncClient
 
+from src.core.config import settings
+
 
 @pytest.mark.integration
 class TestHealthEndpoints:
@@ -49,9 +51,9 @@ class TestHealthEndpoints:
         assert "lot" in data
         assert "environment" in data
 
-        # Check Lot 9 values
-        assert data["version"] == "0.9.0"
-        assert data["lot"] == 9
+        # Check values match settings
+        assert data["version"] == settings.APP_VERSION
+        assert data["lot"] == settings.LOT_NUMBER
         assert data["name"] == "M365 License Optimizer"
 
     @pytest.mark.asyncio
@@ -68,6 +70,7 @@ class TestHealthEndpoints:
         assert "health" in data
         assert "api_base" in data
 
-        assert data["version"] == "0.9.0"
-        assert data["lot"] == 9
+        assert data["version"] == settings.APP_VERSION
+        assert data["lot"] == settings.LOT_NUMBER
         assert data["api_base"] == "/api/v1"
+

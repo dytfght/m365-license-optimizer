@@ -21,12 +21,24 @@ class Settings(BaseSettings):
     )
     # Application
     APP_NAME: str = "M365 License Optimizer"
-    APP_VERSION: str = "0.10.0"
-    LOT_NUMBER: int = 10
+    APP_VERSION: str = "0.11.0"
+    LOT_NUMBER: int = 11
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: Literal["development", "test", "production"] = "development"
     LOG_LEVEL: str = "INFO"
     LOG_RETENTION_DAYS: int = 90  # GDPR compliance
+
+    # LOT 11: Logging files
+    LOG_FILE_PATH: str = "/app/logs/app.log"
+    LOG_MAX_BYTES: int = 10 * 1024 * 1024  # 10MB
+    LOG_BACKUP_COUNT: int = 5
+
+    # LOT 11: Azure Storage (Managed Identity - no secrets needed)
+    AZURE_STORAGE_ACCOUNT: str = ""
+    AZURE_STORAGE_CONTAINER: str = "backups"
+    BACKUP_RETENTION_DAYS: int = 30
+    AZURE_KEYVAULT_URL: str = ""
+
     # Database
     POSTGRES_DB: str
     POSTGRES_USER: str
