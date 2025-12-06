@@ -8,8 +8,10 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
+
 from babel.dates import format_datetime as babel_format_datetime
-from babel.numbers import format_currency as babel_format_currency, format_decimal as babel_format_decimal
+from babel.numbers import format_currency as babel_format_currency
+from babel.numbers import format_decimal as babel_format_decimal
 
 # Translation dictionaries
 # In a production app, these would be loaded from JSON files
@@ -72,6 +74,10 @@ translations: Dict[str, Dict[str, str]] = {
         "report.annual_savings_dept_short": "Annual Savings",
         "report.data_period": "Period",
         "report.generated_on": "Generated on",
+        "report.from_license": "From License",
+        "report.to_license": "To License",
+        "report.no_recommendations_available": "No recommendations available",
+        "report.confidential_notice": "Confidential Document - Internal Use Only",
         "report.generated_at": "Report generated",
         "report.kpi_section": "Key Performance Indicators",
         "report.current_monthly_cost": "Current Monthly Cost",
@@ -191,6 +197,11 @@ translations: Dict[str, Dict[str, str]] = {
         "report.annual_savings_dept": "Économies annuelles",
         # Report translations
         "report.title.excel_summary": "SYNTHÈSE - ANALYSE D'OPTIMISATION MICROSOFT 365",
+        "report.no_recommendations_available": "Aucune recommandation disponible",
+        "report.confidential_notice": "Document confidentiel - Usage interne uniquement",
+        "report.total_savings": "Total Économies",
+        "report.data_period": "Période",
+        "report.generated_on": "Généré le",
         "report.generated_at": "Date de génération",
         "report.kpi_section": "INDICATEURS CLÉS",
         "report.current_monthly_cost": "Coût actuel mensuel",
@@ -250,6 +261,7 @@ translations: Dict[str, Dict[str, str]] = {
         "date.format.full": "dd/MM/yyyy HH:mm:ss",
         # Currency
         "currency.symbol": "€",
+        "report.from_to": "De → Vers",
         "currency.code": "EUR",
     },
 }
@@ -424,7 +436,7 @@ class I18nService:
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
-        except Exception as e:
+        except Exception:
             # Return empty dictionary if loading fails
             return {}
 

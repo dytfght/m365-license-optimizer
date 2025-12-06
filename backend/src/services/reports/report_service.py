@@ -285,7 +285,7 @@ class ReportService:
         )
 
         # Departments breakdown
-        departments = self._prepare_departments_breakdown(analysis.recommendations)
+        departments = self._prepare_departments_breakdown(summary)
 
         # Tenant info - avoid accessing unloaded relationships
         tenant_name = (
@@ -375,7 +375,7 @@ class ReportService:
         report_data["title"] = title
         report_data["language"] = language
         report_data["sections"] = sections
-        
+
         # Add localized labels (but keep original KPI values flat)
         report_data["kpi_labels"] = {
             key: kpis_localized[key]["label"] for key in kpis_localized
@@ -466,39 +466,32 @@ class ReportService:
         return sorted_recommendations[:3]
 
     def _prepare_departments_breakdown(
-        self, recommendations: List
+        self, summary: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
-        """Prepare departments breakdown"""
+        """Prepare departments breakdown from summary data"""
 
-        # Group by department and calculate metrics
-        department_groups: Dict[str, Dict[str, Any]] = {}
+        # Utiliser les données de department_breakdown si disponibles
+        department_breakdown = summary.get("department_breakdown", {})
 
-        for rec in recommendations:
-            # Safely get user and department
-            user = getattr(rec, "user", None)
-            dept = getattr(user, "department", None) if user else None
-            dept = dept if dept else "Non spécifié"
+        if not department_breakdown:
+            return []
 
-            if dept not in department_groups:
-                department_groups[dept] = {
-                    "name": dept,
-                    "user_count": 0,
-                    "current_cost": 0.0,
-                    "target_cost": 0.0,
-                    "annual_savings": 0.0,
-                }
+        departments = []
+        for dept_name, dept_data in department_breakdown.items():
+            if isinstance(dept_data, dict):
+                current_cost = dept_data.get("current_monthly_cost", 0)
+                user_count = dept_data.get("user_count", 0)
 
-            department_groups[dept]["user_count"] += 1
-            department_groups[dept]["current_cost"] += rec.current_cost_monthly
-            department_groups[dept]["target_cost"] += rec.recommended_cost_monthly
-            department_groups[dept]["annual_savings"] += rec.savings_monthly * 12
+                departments.append({
+                    "name": dept_name,
+                    "user_count": user_count,
+                    "current_cost": current_cost,
+                    "target_cost": 0,  # Nécessite des données optimisées
+                    "annual_savings": 0,  # Nécessite des calculs
+                })
 
-        # Sort by annual savings and return top 5
-        sorted_departments = sorted(
-            department_groups.values(), key=lambda x: x["annual_savings"], reverse=True
-        )
-
-        return sorted_departments[:5]
+        # Sort by user count
+        return sorted(departments, key=lambda x: x["user_count"], reverse=True)[:5]
 
     async def _save_report_file(
         self, content: bytes, file_name: str, mime_type: str

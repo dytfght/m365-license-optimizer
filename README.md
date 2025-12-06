@@ -21,7 +21,7 @@ cd m365-license-optimizer
 
 # 2. Configurer les variables d'environnement
 cp .env.example .env
-# Éditer .env avec vos mots de passe (POSTGRES_PASSWORD, REDIS_PASSWORD, PGADMIN_PASSWORD)
+# Éditer .env avec vos mots de passe
 
 # 3. Démarrer les services
 docker-compose up -d
@@ -37,33 +37,8 @@ Les services devraient être visibles sur :
 - Redis : `localhost:6379`
 - PgAdmin : `http://localhost:5050`
 
-### Backend API
-
-```bash
-# 1. Démarrer l'infrastructure (si pas déjà fait)
-docker-compose up -d db redis
-
-# 2. Installer les dépendances Python
-cd backend
-pip install -r requirements.txt
-
-# 3. Générer la clé de chiffrement (première fois uniquement)
-python ../scripts/generate_encryption_key.py
-# Copier la clé dans votre .env : ENCRYPTION_KEY=...
-
-# 4. Appliquer les migrations
-alembic upgrade head
-
-# 5. Démarrer le serveur
-uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Tester l'API :
-```bash
-curl http://localhost:8000/health
-curl http://localhost:8000/api/v1/version
-open http://localhost:8000/docs  # Documentation OpenAPI
-```
+> [!TIP]
+> Pour une installation manuelle (sans Docker), ou pour lancer les tests, consultez le [Guide de Développement](./DEVELOPMENT.md).
 
 ## 🏗️ Architecture
 
@@ -111,6 +86,7 @@ m365-license-optimizer/
 | **9** | Frontend React/Next.js | ✅ Terminé |
 | **10** | Sécurité, RGPD & Journalisation | ✅ Terminé |
 | **11** | Déploiement, Exploitation & Observabilité | ✅ Terminé |
+| **12** | Internationalisation (i18n) | ✅ Terminé |
 
 ### 🎯 Fonctionnalités principales
 
@@ -129,100 +105,23 @@ POST /api/v1/tenants/{id}/sync_usage     # Sync usage metrics
 
 #### Partner Center Integration
 ```
-POST /api/v1/pricing/import        # Import prix CSV
-GET  /api/v1/pricing/products      # Catalogue produits
-GET  /api/v1/pricing/prices/current # Prix actuels
+POST /api/v1/pricing/import              # Import prix Partner Center
+GET  /api/v1/pricing/products             # Liste produits
+GET  /api/v1/pricing/current/{sku}        # Prix actuel
 ```
 
-#### License Optimization (Lot 6)
+#### Analyse & Optimisation
 ```
-POST /api/v1/analyses/tenants/{id}/analyses    # Lancer analyse
-GET  /api/v1/analyses/tenants/{id}/analyses    # Liste analyses
-GET  /api/v1/analyses/analyses/{id}           # Détails + recommandations
-POST /api/v1/analyses/recommendations/{id}/apply # Appliquer recommandation
-```
-
-#### Report Generation (Lot 7)
-```
-POST /api/v1/reports/analyses/{id}/pdf         # Générer rapport PDF
-POST /api/v1/reports/analyses/{id}/excel       # Générer rapport Excel
-GET  /api/v1/reports/analyses/{id}             # Liste rapports d'une analyse
-GET  /api/v1/reports/tenants/{id}              # Liste rapports d'un tenant
-GET  /api/v1/reports/{id}                      # Détails d'un rapport
-GET  /api/v1/reports/{id}/download             # Info de téléchargement
-GET  /api/v1/reports/{id}/file                 # Télécharger le fichier
-DELETE /api/v1/reports/{id}                    # Supprimer un rapport
-POST /api/v1/reports/cleanup                   # Nettoyer rapports expirés
+POST /api/v1/analyses/                   # Créer analyse
+GET  /api/v1/analyses/{id}               # Détails analyse
+POST /api/v1/analyses/{id}/recommendations/{id}/accept  # Appliquer reco
 ```
 
-#### SKU Mapping & Add-ons (Lot 8)
+#### Génération de rapports
 ```
-GET    /api/v1/admin/sku-mapping/summary                          # Statistiques mappings
-POST   /api/v1/admin/sku-mapping/sync/products                    # Sync produits Partner Center
-POST   /api/v1/admin/sku-mapping/sync/compatibility               # Sync règles compatibilité
-GET    /api/v1/admin/sku-mapping/compatible-addons/{base_sku_id}  # Add-ons compatibles
-POST   /api/v1/admin/sku-mapping/validate-addon                   # Valider compatibilité
-GET    /api/v1/admin/sku-mapping/compatibility-mappings           # Liste mappings
-POST   /api/v1/admin/sku-mapping/compatibility-mappings           # Créer mapping
-PUT    /api/v1/admin/sku-mapping/compatibility-mappings/{id}      # Modifier mapping
-DELETE /api/v1/admin/sku-mapping/compatibility-mappings/{id}      # Supprimer mapping
-GET    /api/v1/admin/sku-mapping/recommendations/{base_sku_id}    # Recommandations add-ons
-```
-
-#### Sécurité, RGPD & Logs (Lot 10)
-```
-POST   /api/v1/gdpr/consent/{tenant_id}     # Enregistrer consent
-GET    /api/v1/gdpr/consent/{tenant_id}     # Vérifier consent
-GET    /api/v1/gdpr/export/{user_id}        # Export données (Art 20)
-DELETE /api/v1/gdpr/delete/{user_id}        # Droit à l'oubli (Art 17)
-POST   /api/v1/gdpr/admin/registry          # PDF registre (Art 30)
-GET    /api/v1/admin/logs                   # Liste logs filtrée
-GET    /api/v1/admin/logs/{id}              # Détails log
-POST   /api/v1/admin/logs/purge             # Purge RGPD (90j)
-GET    /api/v1/admin/logs/statistics/summary # Stats erreurs
-```
-
-#### Observabilité & Déploiement (Lot 11)
-```
-GET    /api/v1/admin/metrics           # Métriques système (CPU, RAM, Disk)
-GET    /api/v1/admin/health/extended   # Health check étendu (DB, Redis, Azure)
-POST   /api/v1/admin/backup            # Déclenchement backup manuel
-```
-
-## 🧪 Tests
-
-```bash
-cd backend
-
-# Tests unitaires
-pytest tests/unit/ -v
-
-# Tests d'intégration
-pytest tests/integration/ -v
-
-# Coverage complet
-pytest -v --cov=src --cov-report=html
-
-# Qualité de code
-black src/ tests/
-ruff check src/ tests/
-mypy src/
-```
-
-## 🔧 Commandes utiles
-
-### Docker
-```bash
-docker-compose logs -f          # Logs en temps réel
-docker-compose restart          # Redémarrer
-docker-compose down -v          # Arrêt + suppression données
-```
-
-### Database (Alembic)
-```bash
-alembic upgrade head            # Appliquer migrations
-alembic revision --autogenerate -m "description"  # Nouvelle migration
-alembic current                 # Version actuelle
+POST /api/v1/reports/analyses/{id}/pdf    # Rapport PDF
+POST /api/v1/reports/analyses/{id}/excel  # Rapport Excel
+GET  /api/v1/reports/{id}                 # Télécharger rapport
 ```
 
 ## 📚 Documentation détaillée
@@ -237,11 +136,16 @@ Les validations détaillées par lot sont disponibles dans les fichiers :
 - [LOT7-VALIDATION.md](./LOT7-VALIDATION.md) - Report Generation
 - [LOT8-VALIDATION.md](./LOT8-VALIDATION.md) - Partner Center Mapping & Add-ons
 - [LOT10-VALIDATION.md](./LOT10-VALIDATION.md) - Sécurité, RGPD & Journalisation
+- [LOT11-VALIDATION.md](./LOT11-VALIDATION.md) - Déploiement & Observabilité
+- [LOT12-VALIDATION.md](./LOT12-VALIDATION.md) - Internationalisation (i18n)
+
+> [!NOTE]
+> Pour les détails sur l'implémentation i18n/l10n, voir [LOT12-VALIDATION.md](./LOT12-VALIDATION.md).
 
 ## 🤝 Contribution
 
 1. Créez une branche : `git checkout -b feature/nom`
-2. Committez : `git commit -m "Description"
+2. Committez : `git commit -m "Description"`
 3. Pushez : `git push origin feature/nom`
 4. Ouvrez une Pull Request
 

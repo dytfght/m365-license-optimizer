@@ -3,21 +3,16 @@ PDF Generator - Fixed version without Calibri fonts
 """
 
 import io
-import logging
 from datetime import datetime
-from typing import Any, Dict, List
-
-import numpy as np
-from reportlab.lib import colors
-from reportlab.lib.colors import HexColor
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.units import cm
-from reportlab.pdfgen import canvas
-from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 import structlog
+from reportlab.lib import colors
+from reportlab.lib.colors import HexColor
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
+from reportlab.platypus import Image, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from src.services.i18n_service import i18n_service
 
@@ -42,7 +37,7 @@ class PDFGenerator:
     def generate_executive_summary(self, data: Dict[str, Any], language: str = "en") -> bytes:
         """Generate complete executive summary PDF"""
         logger.info("generating_pdf_report", analysis_id=data.get("analysis_id"), language=language)
-        
+
         # Set language for translations
         i18n_service.set_default_language(language)
 
@@ -99,9 +94,23 @@ class PDFGenerator:
     def _create_header(self, data: Dict[str, Any], language: str) -> Table:
         """Create header with logo, title and dates"""
 
+        # LOG INFO: Vérifier les traductions
+        logger.info("pdf_header_debug",
+                   language=language,
+                   title_key="report.title.pdf_summary",
+                   title_result=i18n_service.translate("report.title.pdf_summary", language),
+                   data_period_key="report.data_period",
+                   data_period_result=i18n_service.translate("report.data_period", language))
+
         # Header layout: [Logo area, Title area]
         header_data = [
-            ["LOGO", data.get("title", i18n_service.translate("report.title.pdf_summary", language))],
+            [
+                # Logo image (if provided) or fallback text
+                Image(data.get("logo_path", "assets/default_logo.png"), width=2.5*cm, height=1.2*cm)
+                if data.get("logo_path") or Path("assets/default_logo.png").exists()
+                else "LOGO",
+                data.get("title", i18n_service.translate("report.title.pdf_summary", language))
+            ],
             [
                 "",
                 f"{i18n_service.translate('report.data_period', language)}: {data.get('period_start', '')} to {data.get('period_end', '')}",
@@ -151,9 +160,9 @@ class PDFGenerator:
         kpi_data2 = [
             [
                 f"{kpis.get('total_users', 0):,}",
-                f"{kpis.get('total_licenses', 0):,}",
-                f"${kpis.get('total_monthly_cost', 0):,.2f}",
-                f"${kpis.get('potential_annual_savings', 0):,.2f}",
+                f"{kpis.get('total_licenses', 0) or sum(kpis.get('license_distribution', {}).values()):,}",
+                f"${kpis.get('current_monthly_cost', 0):,.2f}",
+                f"${kpis.get('annual_savings', 0):,.2f}",
             ],
         ]
 
@@ -190,9 +199,21 @@ class PDFGenerator:
 
         return combined_table
 
-    def _create_license_distribution_chart(self, data: Dict[str, Any], language: str) -> Table:
-        """Create license distribution chart placeholder"""
+    def _create_license_distribution_chart(self, data: Dict[str, Any], language: str):
+        """Create license distribution chart with matplotlib"""
 
+        # Generate chart image
+        chart_image = self._create_donut_chart_matplotlib(data, language)
+
+        if chart_image:
+            try:
+                # Use the generated chart image
+                img = Image(io.BytesIO(chart_image), width=17*cm, height=7*cm)
+                return img
+            except Exception as e:
+                logger.warning("chart_image_error", error=str(e))
+
+        # Fallback to placeholder table if chart generation fails
         chart_table = Table(
             [[i18n_service.translate("report.license_distribution_chart", language)]],
             colWidths=[17 * cm],
@@ -213,7 +234,6 @@ class PDFGenerator:
         )
 
         return chart_table
-
     def _create_recommendations_section(self, data: Dict[str, Any], language: str) -> Table:
         """Create top recommendations table"""
 
@@ -392,7 +412,7 @@ class PDFGenerator:
 
         return footer_table
 
-    def _create_donut_chart_matplotlib(self, data: Dict[str, Any], language: str) -> bytes:
+    def _create_donut_chart_matplotlib(self, data: Dict[str, Any], language: str) -> Optional[bytes]:
         """Create matplotlib donut chart - placeholder"""
         try:
             import matplotlib.pyplot as plt

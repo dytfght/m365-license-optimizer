@@ -6,7 +6,7 @@ from typing import Annotated, Any, Dict, Optional
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Header
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....core.database import get_db
@@ -16,8 +16,8 @@ from ....schemas.report import (
     ReportListResponse,
     ReportResponse,
 )
-from ....services.reports.report_service import ReportService
 from ....services.i18n_service import i18n_service
+from ....services.reports.report_service import ReportService
 from ...deps import get_current_user
 
 logger = structlog.get_logger(__name__)
@@ -43,14 +43,14 @@ async def generate_pdf_report(
     # Determine language preference - USE ONLY USER'S SAVED PREFERENCE FROM DATABASE
     # Ignore Accept-Language header completely to respect user's choice
     # This ensures reports are in the same language as the UI
-    language = current_user.language
-    
+    language = accept_language or current_user.language or 'en'
+
     logger.debug(
         "language_selected_for_report",
         user_preference=current_user.language,
         header_provided=accept_language,
         final_language=language,
-        message="Using user preference from database, ignoring header"
+        message="Header takes precedence over user preference"
     )
 
     logger.info(
@@ -110,14 +110,14 @@ async def generate_excel_report(
     # Determine language preference - USE ONLY USER'S SAVED PREFERENCE FROM DATABASE
     # Ignore Accept-Language header completely to respect user's choice
     # This ensures reports are in the same language as the UI
-    language = current_user.language
-    
+    language = accept_language or current_user.language or 'en'
+
     logger.debug(
         "language_selected_for_report",
         user_preference=current_user.language,
         header_provided=accept_language,
         final_language=language,
-        message="Using user preference from database, ignoring header"
+        message="Header takes precedence over user preference"
     )
 
     logger.info(

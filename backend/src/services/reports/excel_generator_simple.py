@@ -52,7 +52,7 @@ class ExcelGenerator:
         """Generate detailed Excel report with 3 sheets"""
 
         logger.info("generating_excel_report", analysis_id=data.get("analysis_id"), language=language)
-        
+
         # Set language for translations
         i18n_service.set_default_language(language)
 
@@ -65,10 +65,10 @@ class ExcelGenerator:
         # Create 3 sheets with localized names
         sheet_names = [
             i18n_service.translate("report.title.excel", language) or "Summary",
-            i18n_service.translate("report.section.recommendations", language) or "Recommendations", 
+            i18n_service.translate("report.section.recommendations", language) or "Recommendations",
             i18n_service.translate("report.raw_data", language) or "Raw Data"
         ]
-        
+
         wb.create_sheet(sheet_names[0], 0)
         wb.create_sheet(sheet_names[1], 1)
         wb.create_sheet(sheet_names[2], 2)

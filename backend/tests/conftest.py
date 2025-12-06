@@ -343,3 +343,60 @@ def configure_parallel_testing():
     # Set environment variable to indicate parallel testing
     os.environ["PYTEST_XDIST_WORKER"] = os.environ.get("PYTEST_XDIST_WORKER", "gw0")
     yield
+
+
+@pytest_asyncio.fixture
+async def test_user(db_session, test_tenant):
+    """Create a test user and return its ID."""
+    from uuid import uuid4
+    from src.models.user import User
+    
+    # Utiliser des champs valides du modèle User
+    # Ensure graph_id is set
+    user = User(
+        id=uuid4(),
+        graph_id=str(uuid4()),
+        tenant_client_id=test_tenant.id,
+        user_principal_name=f"test-{uuid4()}@test.com",
+        display_name="Test User",
+    )
+    db_session.add(user)
+    await db_session.commit()
+    return user
+
+
+@pytest_asyncio.fixture
+async def test_analysis_id(db_session):
+    """Create a test analysis and return its ID."""
+    from uuid import uuid4
+    from datetime import datetime, timezone
+    from src.models.analysis import Analysis
+    from src.models.tenant import TenantClient
+    
+    # Créer un tenant si nécessaire
+    tenant = TenantClient(
+        id=uuid4(),
+        name="Test Tenant",
+        tenant_id=str(uuid4()),
+        country="US",
+        onboarding_status="active",
+    )
+    db_session.add(tenant)
+    await db_session.flush()
+    
+    analysis = Analysis(
+        id=uuid4(),
+        tenant_client_id=tenant.id,
+        analysis_date=datetime.now(timezone.utc),
+        status="COMPLETED",
+        summary={
+            "total_users": 100,
+            "total_current_cost": 5000.0,
+            "total_optimized_cost": 4500.0,
+            "potential_savings_monthly": 500.0,
+            "potential_savings_annual": 6000.0,
+        },
+    )
+    db_session.add(analysis)
+    await db_session.commit()
+    return analysis.id
