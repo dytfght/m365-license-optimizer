@@ -346,7 +346,7 @@ class TestAddonValidator:
         # Mock the async internal validation methods
         validator._validate_business_rules = AsyncMock(return_value=(True, []))
         validator._validate_service_limits = AsyncMock(return_value=(True, []))
-        
+
         addons = [
             {"sku_id": "0001", "quantity": 1},
             {"sku_id": "0002", "quantity": 2},

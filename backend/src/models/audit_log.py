@@ -2,12 +2,11 @@
 Audit Log model for LOT 10: Persistent logging in database
 Stores all API requests and security events for compliance and debugging.
 """
-from datetime import datetime
 from enum import Enum as PyEnum
 from typing import Optional
 from uuid import UUID as UUID_TYPE
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 

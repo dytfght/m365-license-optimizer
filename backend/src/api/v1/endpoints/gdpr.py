@@ -10,8 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...deps import get_current_user, get_db
 from ....services.gdpr_service import GdprService
+from ...deps import get_current_user, get_db
 
 logger = structlog.get_logger(__name__)
 

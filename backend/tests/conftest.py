@@ -16,15 +16,14 @@ from sqlalchemy.pool import NullPool
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.core.config import settings
-from src.core.database import get_db
-from src.core.security import create_access_token, get_password_hash
-from src.main import app
-from src.models.base import Base
+from src.core.config import settings  # noqa: E402
+from src.core.database import get_db  # noqa: E402
+from src.core.security import create_access_token, get_password_hash  # noqa: E402
+from src.main import app  # noqa: E402
+from src.models.base import Base  # noqa: E402
 
 # Test database configuration
 TEST_DB_NAME = "m365_optimizer_test"
-TEST_DATABASE_URL = settings.DATABASE_URL.replace("m365_optimizer", TEST_DB_NAME)
 
 # Force test settings
 settings.REDIS_HOST = "localhost"
@@ -36,6 +35,10 @@ settings.ENCRYPTION_KEY = "FhzMkaFPhMpiC9Eh3AkIDSDZEVA8QGMS7IId7NTX-B8="
 settings.PARTNER_CLIENT_ID = "00000000-0000-0000-0000-000000000000"
 settings.PARTNER_CLIENT_SECRET = "test-partner-secret"
 settings.PARTNER_TENANT_ID = "00000000-0000-0000-0000-000000000000"
+
+# Test database configuration
+TEST_DB_NAME = "m365_optimizer_test"
+TEST_DATABASE_URL = settings.DATABASE_URL.replace("m365_optimizer", TEST_DB_NAME)
 
 # Use test database URL
 settings.DATABASE_URL = TEST_DATABASE_URL
@@ -70,7 +73,7 @@ async def setup_test_database():
     except Exception as e:
         print(f"Warning: Could not create test database: {e}")
         # Fallback to using main database with unique schema
-        TEST_DATABASE_URL = settings.DATABASE_URL
+        pass
     finally:
         await main_engine.dispose()
 

@@ -3,10 +3,9 @@ Microsoft Graph API Service
 Handles HTTP calls to Microsoft Graph endpoints with pagination,
 retry logic, and error handling.
 """
-import asyncio
 import csv
 import io
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -42,26 +41,26 @@ class GraphService:
     ) -> Any:
         """
         Execute a GraphClient operation with automatic token refresh on 401.
-        
+
         Args:
             tenant_id: Azure AD tenant ID
             operation: Async function that takes a GraphClient and returns result
-            
+
         Returns:
             Operation result
         """
         last_error = None
-        
+
         for attempt in range(self.max_retries):
             client = None
             try:
                 # Get token (cached or new)
                 token = await self.auth_service.get_access_token(tenant_id)
                 client = GraphClient(token)
-                
+
                 # Execute operation
                 return await operation(client)
-                
+
             except GraphAPIError as e:
                 # Handle Auth errors (401, 403)
                 if e.status_code in (401, 403):
@@ -75,27 +74,27 @@ class GraphService:
                     await self.auth_service.invalidate_cache(tenant_id)
                     last_error = e
                     continue
-                
+
                 # Re-raise other Graph errors
                 raise
-                
+
             except Exception as e:
                 # Re-raise unexpected errors
                 logger.error(
-                    "graph_operation_failed", 
-                    tenant_id=tenant_id, 
+                    "graph_operation_failed",
+                    tenant_id=tenant_id,
                     error=str(e)
                 )
                 raise
-            
+
             finally:
                 if client:
                     await client.close()
-        
+
         # If we exhausted retries on auth error
         if last_error:
             raise last_error
-        
+
         raise RuntimeError("Graph operation failed after retries")
 
     async def fetch_users(self, tenant_id: str) -> list[dict]:
@@ -104,7 +103,7 @@ class GraphService:
         """
         async def _op(client: GraphClient):
             return await client.get_users()
-            
+
         logger.info("fetching_users", tenant_id=tenant_id)
         users = await self._execute_with_client(tenant_id, _op)
         logger.info("users_fetched", tenant_id=tenant_id, count=len(users))
@@ -116,7 +115,7 @@ class GraphService:
         """
         async def _op(client: GraphClient):
             return await client.get_subscribed_skus()
-            
+
         logger.info("fetching_subscribed_skus", tenant_id=tenant_id)
         skus = await self._execute_with_client(tenant_id, _op)
         logger.info("subscribed_skus_fetched", tenant_id=tenant_id, count=len(skus))
@@ -130,7 +129,7 @@ class GraphService:
         """
         async def _op(client: GraphClient):
             return await client.get_user_license_details(user_graph_id)
-            
+
         return await self._execute_with_client(tenant_id, _op)
 
     async def fetch_usage_report_email(
@@ -163,12 +162,12 @@ class GraphService:
         """Helper to fetch and parse usage reports"""
         async def _op(client: GraphClient):
             return await client.get_usage_report(endpoint, period)
-            
+
         logger.info(f"fetching_{endpoint}", tenant_id=tenant_id, period=period)
-        
+
         try:
             csv_content = await self._execute_with_client(tenant_id, _op)
-            
+
             if isinstance(csv_content, str) and csv_content:
                 data = self._parse_csv_report(csv_content)
                 logger.info(
@@ -179,13 +178,13 @@ class GraphService:
                 )
                 return data
             return []
-            
+
         except Exception as e:
             logger.error(f"failed_fetching_{endpoint}", error=str(e))
-            # Return empty list on failure to not break full sync? 
-            # Original code logged error but didn't explicitly suppress all errors, 
-            # but _make_request raised. 
-            # However, sync_usage in endpoint catches exceptions per report? 
+            # Return empty list on failure to not break full sync?
+            # Original code logged error but didn't explicitly suppress all errors,
+            # but _make_request raised.
+            # However, sync_usage in endpoint catches exceptions per report?
             # No, sync_usage catches exception for the whole process.
             # Let's re-raise to be safe and consistent with previous behavior.
             raise
@@ -198,7 +197,7 @@ class GraphService:
             # Remove BOM if present
             if csv_content.startswith("\ufeff"):
                 csv_content = csv_content[1:]
-                
+
             csv_file = io.StringIO(csv_content)
             reader = csv.DictReader(csv_file)
             data = list(reader)

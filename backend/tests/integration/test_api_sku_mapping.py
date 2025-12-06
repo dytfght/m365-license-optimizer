@@ -48,7 +48,7 @@ class TestSkuMappingAPI:
     async def auth_headers(self, admin_user: User, client: AsyncClient, db_session) -> dict:
         """Get authentication headers for admin user"""
         from src.core.security import create_access_token
-        
+
         # Create a real JWT token for the admin user
         access_token = create_access_token(
             data={
@@ -57,7 +57,7 @@ class TestSkuMappingAPI:
                 "tenants": [str(admin_user.tenant_client_id)],
             }
         )
-        
+
         return {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",

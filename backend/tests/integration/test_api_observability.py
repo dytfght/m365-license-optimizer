@@ -5,8 +5,6 @@ Tests /api/v1/admin/metrics, /health/extended, and /backup endpoints.
 import pytest
 from httpx import AsyncClient
 
-from src.main import app
-
 
 class TestObservabilityEndpoints:
     """Integration tests for observability API endpoints."""
@@ -31,10 +29,10 @@ class TestObservabilityEndpoints:
             "/api/v1/admin/metrics",
             headers=auth_headers,
         )
-        
+
         assert response.status_code == 200
         data = response.json()
-        
+
         # Verify response structure
         assert "timestamp" in data
         assert "uptime_seconds" in data
@@ -44,7 +42,7 @@ class TestObservabilityEndpoints:
         assert "disk" in data
         assert "network" in data
         assert "process" in data
-        
+
         # Verify system info
         assert "platform" in data["system"]
         assert "python_version" in data["system"]
@@ -66,10 +64,10 @@ class TestObservabilityEndpoints:
             "/api/v1/admin/health/extended",
             headers=auth_headers,
         )
-        
+
         assert response.status_code == 200
         data = response.json()
-        
+
         # Verify response structure
         assert "status" in data
         assert "database" in data
@@ -80,7 +78,7 @@ class TestObservabilityEndpoints:
         assert "uptime_seconds" in data
         assert "timestamp" in data
         assert "checks" in data
-        
+
         # Database and Redis should be healthy in test environment
         assert data["database"] in ["ok", "unhealthy"]
         assert data["redis"] in ["ok", "unhealthy"]
@@ -104,16 +102,16 @@ class TestObservabilityEndpoints:
             headers=auth_headers,
             json={"include_logs": False, "description": "Test backup"},
         )
-        
+
         assert response.status_code == 200
         data = response.json()
-        
+
         # Verify response structure
         assert "success" in data
         assert "backup_id" in data
         assert "timestamp" in data
         assert "message" in data
-        
+
         # In test environment without pg_dump, may fail gracefully
         if not data["success"]:
             assert "error" in data
@@ -128,7 +126,7 @@ class TestObservabilityEndpoints:
             headers=auth_headers,
             json={"include_logs": True},
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "timestamp" in data
@@ -146,10 +144,10 @@ class TestMetricsDataIntegrity:
             "/api/v1/admin/metrics",
             headers=auth_headers,
         )
-        
+
         assert response.status_code == 200
         cpu = response.json()["cpu"]
-        
+
         # percent should be between 0 and 100
         if "error" not in cpu:
             assert 0 <= cpu["percent"] <= 100
@@ -163,10 +161,10 @@ class TestMetricsDataIntegrity:
             "/api/v1/admin/metrics",
             headers=auth_headers,
         )
-        
+
         assert response.status_code == 200
         memory = response.json()["memory"]
-        
+
         if "error" not in memory:
             # Memory values should be positive
             assert memory["total_bytes"] > 0
@@ -182,10 +180,10 @@ class TestMetricsDataIntegrity:
             "/api/v1/admin/metrics",
             headers=auth_headers,
         )
-        
+
         assert response.status_code == 200
         timestamp = response.json()["timestamp"]
-        
+
         # Should contain 'T' separator for ISO format
         assert "T" in timestamp
         # Should end with timezone info
@@ -204,10 +202,10 @@ class TestExtendedHealthDetails:
             "/api/v1/admin/health/extended",
             headers=auth_headers,
         )
-        
+
         assert response.status_code == 200
         checks = response.json()["checks"]
-        
+
         # Should have check results
         assert isinstance(checks, dict)
 
@@ -220,10 +218,10 @@ class TestExtendedHealthDetails:
             "/api/v1/admin/health/extended",
             headers=auth_headers,
         )
-        
+
         assert response.status_code == 200
         data = response.json()
-        
+
         assert "version" in data
         assert data["version"]  # Non-empty
         assert "." in data["version"]  # Should be semver-like
@@ -237,10 +235,10 @@ class TestExtendedHealthDetails:
             "/api/v1/admin/health/extended",
             headers=auth_headers,
         )
-        
+
         assert response.status_code == 200
         data = response.json()
-        
+
         assert "environment" in data
         assert data["environment"] in ["development", "test", "production"]
 

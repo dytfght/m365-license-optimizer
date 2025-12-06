@@ -2,16 +2,17 @@
 CSV Import Service for Microsoft Pricing Data - OPTIMIZED VERSION V2
 Handles importing Partner Center pricing CSV files into the database
 """
-import csv
 import asyncio
+import csv
 import time
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
+
 import aiofiles
 import structlog
-from sqlalchemy import select, insert, and_
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,11 +46,11 @@ class PriceImportService:
             raise FileNotFoundError(f"CSV file not found: {csv_path}")
 
         stats: dict[str, Any] = {
-            "products": 0, "prices": 0, "errors": [], 
+            "products": 0, "prices": 0, "errors": [],
             "products_skipped": 0, "prices_skipped": 0,
             "batches_processed": 0
         }
-        
+
         self.logger.info("csv_import_started_v2", file=str(csv_path))
 
         try:
@@ -59,7 +60,7 @@ class PriceImportService:
 
             # Étape 2: Streaming CSV avec batch processing
             batch_stats = await self._process_csv_streaming(csv_path, existing_products)
-            
+
             # Fusionner les statistiques
             for key in stats:
                 if key in batch_stats:
@@ -91,7 +92,7 @@ class PriceImportService:
         """
         stmt = select(MicrosoftProduct.product_id, MicrosoftProduct.sku_id)
         result = await self.db.execute(stmt)
-        
+
         # Retourner un set de tuples pour accès O(1)
         return set(result.all())
 
@@ -106,35 +107,35 @@ class PriceImportService:
             "products_skipped": 0, "prices_skipped": 0,
             "batches_processed": 0, "total_time": 0
         }
-        
+
         start_time = time.time()
-        
+
         products_batch: List[MicrosoftProduct] = []
         prices_batch: List[MicrosoftPrice] = []
         seen_products: Set[Tuple[str, str]] = set()  # Pour éviter les doublons dans le batch
-        
+
         async with aiofiles.open(csv_path, mode="r", encoding="utf-8") as file:
             # Lire l'en-tête
             header_line = await file.readline()
             if not header_line:
                 raise ValueError("CSV file is empty")
-            
+
             reader = csv.DictReader([header_line])
             fieldnames = reader.fieldnames
-            
+
             line_num = 1
             async for line in file:
                 line_num += 1
                 try:
                     # Parser la ligne
                     row = dict(zip(fieldnames, csv.reader([line]).__next__()))
-                    
+
                     # Créer les objets
                     product = self._parse_product(row)
                     price = self._parse_price(row)
-                    
+
                     product_key = (product.product_id, product.sku_id)
-                    
+
                     # Gestion intelligente des produits
                     if product_key not in existing_products and product_key not in seen_products:
                         products_batch.append(product)
@@ -142,21 +143,21 @@ class PriceImportService:
                         stats["products"] += 1
                     else:
                         stats["products_skipped"] += 1
-                    
+
                     # Toujours ajouter les prix (ils peuvent avoir des variations)
                     prices_batch.append(price)
                     stats["prices"] += 1
-                    
+
                     # Traiter le batch quand il atteint la taille optimale
                     if len(products_batch) >= self.batch_size or len(prices_batch) >= self.batch_size:
                         await self._process_batch(products_batch, prices_batch)
                         stats["batches_processed"] += 1
-                        
+
                         # Réinitialiser les batchs
                         products_batch = []
                         prices_batch = []
                         seen_products = set()
-                        
+
                         # Petit pause pour éviter de surcharger la base de données
                         await asyncio.sleep(0.01)
 
@@ -181,7 +182,7 @@ class PriceImportService:
         """
         if products:
             await self._bulk_insert_products(products)
-        
+
         if prices:
             await self._bulk_insert_prices(prices)
 
@@ -191,7 +192,7 @@ class PriceImportService:
         """
         if not products:
             return
-            
+
         # Utiliser PostgreSQL INSERT ... ON CONFLICT DO NOTHING
         stmt = pg_insert(MicrosoftProduct).values([
             {
@@ -206,7 +207,7 @@ class PriceImportService:
             }
             for p in products
         ]).on_conflict_do_nothing(constraint="uq_product_sku")
-        
+
         await self.db.execute(stmt)
 
     async def _bulk_insert_prices(self, prices: List[MicrosoftPrice]) -> None:
@@ -215,7 +216,7 @@ class PriceImportService:
         """
         if not prices:
             return
-            
+
         # Utiliser PostgreSQL INSERT ... ON CONFLICT DO NOTHING
         stmt = pg_insert(MicrosoftPrice).values([
             {
@@ -236,7 +237,7 @@ class PriceImportService:
             }
             for p in prices
         ]).on_conflict_do_nothing(constraint="uq_price_variant")
-        
+
         await self.db.execute(stmt)
 
     def _parse_product(self, row: Dict[str, str]) -> MicrosoftProduct:
@@ -281,17 +282,17 @@ class PriceImportService:
         """Parse and validate billing plan value"""
         if not billing_plan or billing_plan.strip() == "":
             return "Annual"
-        
+
         if billing_plan.strip() == "None":
             return "Annual"
-        
+
         billing_plan_clean = billing_plan.strip()
         if billing_plan_clean not in ["Annual", "Monthly"]:
             logger.warning(
                 "invalid_billing_plan_value", value=billing_plan_clean, default="Annual"
             )
             return "Annual"
-        
+
         return billing_plan_clean
 
     @staticmethod

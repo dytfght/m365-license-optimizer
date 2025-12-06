@@ -11,7 +11,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
-from ..models.audit_log import AuditLog, LogLevel
+from ..models.audit_log import AuditLog
 
 logger = structlog.get_logger(__name__)
 

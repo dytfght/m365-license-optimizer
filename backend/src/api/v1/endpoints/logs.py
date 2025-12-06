@@ -3,7 +3,7 @@ Logs API Endpoints for LOT 10
 Admin endpoints for viewing and managing audit logs.
 """
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 from uuid import UUID
 
 import structlog
@@ -11,8 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...deps import get_current_user, get_db
 from ....services.logging_service import LoggingService
+from ...deps import get_current_user, get_db
 
 logger = structlog.get_logger(__name__)
 

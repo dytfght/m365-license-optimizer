@@ -14,7 +14,6 @@ from .endpoints import (
     logs,
     pricing,
     reports,
-    reports,
     tenants,
     users,
 )

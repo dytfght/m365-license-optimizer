@@ -3,7 +3,7 @@ Unit tests for GdprService (LOT 10)
 Tests consent management, data export, and right to erasure.
 """
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -117,7 +117,7 @@ class TestGdprService:
     async def test_export_user_data_success(self, service, mock_db):
         """Test successful user data export."""
         user_id = uuid4()
-        
+
         # Mock user
         mock_user = MagicMock()
         mock_user.id = user_id
@@ -175,7 +175,7 @@ class TestGdprService:
     async def test_delete_user_data_full_delete(self, service, mock_db):
         """Test full user data deletion."""
         user_id = uuid4()
-        
+
         mock_user = MagicMock()
         mock_user.id = user_id
 
@@ -193,7 +193,7 @@ class TestGdprService:
     async def test_delete_user_data_anonymize(self, service, mock_db):
         """Test user data anonymization."""
         user_id = uuid4()
-        
+
         mock_user = MagicMock()
         mock_user.id = user_id
         mock_user.user_principal_name = "test@example.com"

@@ -22,7 +22,7 @@ class TestSecurityService:
     def test_generate_totp_secret(self, service):
         """Test TOTP secret generation."""
         secret = service.generate_totp_secret()
-        
+
         assert secret is not None
         assert len(secret) == 32  # Base32 encoded
         assert secret.isalnum()
@@ -30,7 +30,7 @@ class TestSecurityService:
     def test_generate_totp_secret_uniqueness(self, service):
         """Test that TOTP secrets are unique."""
         secrets = [service.generate_totp_secret() for _ in range(10)]
-        
+
         # All secrets should be unique
         assert len(set(secrets)) == 10
 
@@ -38,7 +38,7 @@ class TestSecurityService:
         """Test TOTP provisioning URI generation."""
         secret = service.generate_totp_secret()
         uri = service.get_totp_provisioning_uri(secret, "test@example.com")
-        
+
         assert uri.startswith("otpauth://totp/")
         assert "M365LicenseOptimizer" in uri
         assert "test%40example.com" in uri or "test@example.com" in uri
@@ -47,17 +47,17 @@ class TestSecurityService:
         """Test TOTP verification with valid token."""
         secret = service.generate_totp_secret()
         token = service.get_current_totp(secret)
-        
+
         result = service.verify_totp(secret, token)
-        
+
         assert result is True
 
     def test_verify_totp_invalid_token(self, service):
         """Test TOTP verification with invalid token."""
         secret = service.generate_totp_secret()
-        
+
         result = service.verify_totp(secret, "000000")
-        
+
         assert result is False
 
     def test_verify_totp_empty_inputs(self, service):
@@ -73,9 +73,9 @@ class TestSecurityService:
     def test_hash_password_argon2(self, service):
         """Test Argon2 password hashing."""
         password = "SecurePassword123!"
-        
+
         hashed = service.hash_password_argon2(password)
-        
+
         assert hashed is not None
         assert hashed != password
         assert hashed.startswith("$argon2")
@@ -83,10 +83,10 @@ class TestSecurityService:
     def test_hash_password_argon2_uniqueness(self, service):
         """Test that same password produces different hashes."""
         password = "TestPassword123!"
-        
+
         hash1 = service.hash_password_argon2(password)
         hash2 = service.hash_password_argon2(password)
-        
+
         # Different hashes due to random salt
         assert hash1 != hash2
 
@@ -104,18 +104,18 @@ class TestSecurityService:
         """Test Argon2 password verification with valid password."""
         password = "SecurePassword123!"
         hashed = service.hash_password_argon2(password)
-        
+
         result = service.verify_password_argon2(hashed, password)
-        
+
         assert result is True
 
     def test_verify_password_argon2_invalid(self, service):
         """Test Argon2 password verification with invalid password."""
         password = "SecurePassword123!"
         hashed = service.hash_password_argon2(password)
-        
+
         result = service.verify_password_argon2(hashed, "WrongPassword123!")
-        
+
         assert result is False
 
     def test_verify_password_argon2_empty(self, service):
@@ -127,10 +127,10 @@ class TestSecurityService:
         """Test password rehash check."""
         password = "TestPassword123!"
         hashed = service.hash_password_argon2(password)
-        
+
         # Fresh hash should not need rehash
         result = service.check_password_needs_rehash(hashed)
-        
+
         assert isinstance(result, bool)
 
     # ============================================
@@ -140,13 +140,13 @@ class TestSecurityService:
     def test_sanitize_input_basic(self, service):
         """Test basic input sanitization."""
         result = service.sanitize_input("Hello World")
-        
+
         assert result == "Hello World"
 
     def test_sanitize_input_html(self, service):
         """Test HTML sanitization."""
         result = service.sanitize_input("<script>alert('xss')</script>")
-        
+
         assert "<" not in result
         assert ">" not in result
         assert "&lt;script&gt;" in result
@@ -154,21 +154,21 @@ class TestSecurityService:
     def test_sanitize_input_max_length(self, service):
         """Test max length truncation."""
         long_text = "a" * 2000
-        
+
         result = service.sanitize_input(long_text, max_length=100)
-        
+
         assert len(result) == 100
 
     def test_sanitize_input_null_bytes(self, service):
         """Test null byte removal."""
         result = service.sanitize_input("hello\x00world")
-        
+
         assert "\x00" not in result
 
     def test_sanitize_input_empty(self, service):
         """Test empty input handling."""
         result = service.sanitize_input("")
-        
+
         assert result == ""
 
     def test_validate_email_valid(self, service):
@@ -202,20 +202,20 @@ class TestSecurityService:
     def test_generate_secure_token(self, service):
         """Test secure token generation."""
         token = service.generate_secure_token()
-        
+
         assert len(token) == 64  # 32 bytes = 64 hex chars
         assert token.isalnum()
 
     def test_generate_secure_token_custom_length(self, service):
         """Test secure token with custom length."""
         token = service.generate_secure_token(length=16)
-        
+
         assert len(token) == 32  # 16 bytes = 32 hex chars
 
     def test_generate_secure_token_uniqueness(self, service):
         """Test secure token uniqueness."""
         tokens = [service.generate_secure_token() for _ in range(10)]
-        
+
         assert len(set(tokens)) == 10
 
     # ============================================
@@ -225,7 +225,7 @@ class TestSecurityService:
     def test_get_rate_limit_key(self, service):
         """Test rate limit key generation."""
         key = service.get_rate_limit_key("user123", "login")
-        
+
         assert key == "rate_limit:login:user123"
 
     # ============================================
@@ -236,5 +236,5 @@ class TestSecurityService:
         """Test that get_security_service returns singleton."""
         service1 = get_security_service()
         service2 = get_security_service()
-        
+
         assert service1 is service2

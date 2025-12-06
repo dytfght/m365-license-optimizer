@@ -6,11 +6,10 @@ import subprocess
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 from uuid import uuid4
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,20 +41,20 @@ async def get_metrics(
 ) -> SystemMetrics:
     """
     Get comprehensive system metrics.
-    
+
     Requires admin authentication.
-    
+
     Returns:
         SystemMetrics with CPU, memory, disk, network, and process information
     """
     observability = get_observability_service()
     metrics = observability.get_all_metrics()
-    
+
     logger.info(
         "system_metrics_requested",
         user_id=str(_current_user.get("sub", "unknown")),
     )
-    
+
     return SystemMetrics(**metrics)
 
 
@@ -71,18 +70,18 @@ async def extended_health_check(
 ) -> ExtendedHealthCheck:
     """
     Perform an extended health check of all services.
-    
+
     Checks:
     - Database connectivity
     - Redis connectivity
     - Azure Storage connectivity (if configured)
-    
+
     Returns:
         ExtendedHealthCheck with detailed status of each service
     """
     observability = get_observability_service()
     checks: dict[str, bool] = {}
-    
+
     # Check database
     db_status = "unhealthy"
     try:
@@ -147,13 +146,13 @@ async def trigger_backup(
 ) -> BackupResponse:
     """
     Trigger a manual database backup.
-    
+
     The backup is created using pg_dump and uploaded to Azure Blob Storage
     using Managed Identity authentication.
-    
+
     Args:
         request: Backup configuration options
-        
+
     Returns:
         BackupResponse with backup details or error information
     """
@@ -161,14 +160,14 @@ async def trigger_backup(
     timestamp = datetime.now(timezone.utc)
     timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
     filename = f"backup_{timestamp_str}_{backup_id[:8]}.sql.gz"
-    
+
     logger.info(
         "manual_backup_triggered",
         backup_id=backup_id,
         user_id=str(_current_user.get("sub", "unknown")),
         include_logs=request.include_logs,
     )
-    
+
     # Log the backup operation via logging service
     try:
         logging_service = LoggingService(db)
@@ -191,7 +190,7 @@ async def trigger_backup(
         local_backup_dir = Path(settings.LOG_FILE_PATH).parent / "backups"
         local_backup_dir.mkdir(parents=True, exist_ok=True)
         local_path = local_backup_dir / filename
-        
+
         try:
             # For local dev, just create a placeholder or run pg_dump locally
             # In production, this would upload to Azure Blob Storage
@@ -210,12 +209,12 @@ async def trigger_backup(
                 env={**dict(__import__("os").environ), "PGPASSWORD": settings.POSTGRES_PASSWORD},
                 timeout=300,  # 5 minute timeout
             )
-            
+
             if result.returncode != 0:
                 raise Exception(f"pg_dump failed: {result.stderr}")
-            
+
             file_size = local_path.stat().st_size if local_path.exists() else 0
-            
+
             return BackupResponse(
                 success=True,
                 backup_id=backup_id,
@@ -225,7 +224,7 @@ async def trigger_backup(
                 timestamp=timestamp.isoformat(),
                 message=f"Backup created successfully (local): {filename}",
             )
-            
+
         except subprocess.TimeoutExpired:
             return BackupResponse(
                 success=False,
@@ -252,32 +251,32 @@ async def trigger_backup(
                 message=f"Backup failed: {str(e)}",
                 error=str(e),
             )
-    
+
     # Azure Blob Storage backup using Managed Identity
     try:
         from azure.identity import DefaultAzureCredential
         from azure.storage.blob import BlobServiceClient
-        
+
         # Create blob service client using Managed Identity
         account_url = f"https://{settings.AZURE_STORAGE_ACCOUNT}.blob.core.windows.net"
         credential = DefaultAzureCredential()
         blob_service_client = BlobServiceClient(account_url, credential=credential)
-        
+
         # Get container client
         container_client = blob_service_client.get_container_client(
             settings.AZURE_STORAGE_CONTAINER
         )
-        
+
         # Create container if it doesn't exist
         try:
             container_client.create_container()
         except Exception:
             pass  # Container already exists
-        
+
         # Create backup using pg_dump
         with tempfile.NamedTemporaryFile(suffix=".sql.gz", delete=False) as tmp_file:
             tmp_path = tmp_file.name
-        
+
         result = subprocess.run(
             [
                 "pg_dump",
@@ -293,23 +292,23 @@ async def trigger_backup(
             env={**dict(__import__("os").environ), "PGPASSWORD": settings.POSTGRES_PASSWORD},
             timeout=300,
         )
-        
+
         if result.returncode != 0:
             raise Exception(f"pg_dump failed: {result.stderr}")
-        
+
         # Upload to Azure Blob Storage
         blob_client = container_client.get_blob_client(filename)
-        
+
         with open(tmp_path, "rb") as data:
             blob_client.upload_blob(data, overwrite=True)
-        
+
         file_size = Path(tmp_path).stat().st_size
-        
+
         # Clean up temp file
         Path(tmp_path).unlink()
-        
+
         storage_path = f"https://{settings.AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/{settings.AZURE_STORAGE_CONTAINER}/{filename}"
-        
+
         logger.info(
             "backup_completed",
             backup_id=backup_id,
@@ -317,7 +316,7 @@ async def trigger_backup(
             size_bytes=file_size,
             storage_path=storage_path,
         )
-        
+
         return BackupResponse(
             success=True,
             backup_id=backup_id,
@@ -327,7 +326,7 @@ async def trigger_backup(
             timestamp=timestamp.isoformat(),
             message=f"Backup uploaded to Azure Blob Storage: {filename}",
         )
-        
+
     except ImportError:
         return BackupResponse(
             success=False,

@@ -202,18 +202,18 @@ async def get_current_admin_user(
 ) -> dict:
     """
     Validate admin access from token.
-    
+
     For LOT 11 observability endpoints, we allow any authenticated user
     with a valid token to access admin endpoints.
-    
+
     In production, this should check for admin role in the token.
-    
+
     Args:
         token_payload: Validated token payload
-        
+
     Returns:
         Dictionary with token claims
-        
+
     Raises:
         HTTPException: If user is not authorized
     """
@@ -224,7 +224,7 @@ async def get_current_admin_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
         )
-    
+
     return {
         "sub": token_payload.sub,
         "email": token_payload.email,

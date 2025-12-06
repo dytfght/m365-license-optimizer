@@ -87,11 +87,11 @@ class TestLoggingService:
     async def test_get_logs_no_filters(self, service, mock_db):
         """Test log retrieval without filters."""
         mock_logs = [MagicMock() for _ in range(5)]
-        
+
         # Mock count query
         count_result = MagicMock()
         count_result.scalar.return_value = 100
-        
+
         # Mock data query
         data_result = MagicMock()
         data_result.scalars.return_value.all.return_value = mock_logs
@@ -107,10 +107,10 @@ class TestLoggingService:
     async def test_get_logs_with_level_filter(self, service, mock_db):
         """Test log retrieval with level filter."""
         mock_logs = [MagicMock()]
-        
+
         count_result = MagicMock()
         count_result.scalar.return_value = 1
-        
+
         data_result = MagicMock()
         data_result.scalars.return_value.all.return_value = mock_logs
 
@@ -126,10 +126,10 @@ class TestLoggingService:
         """Test log retrieval with date range filter."""
         start_date = datetime.utcnow() - timedelta(days=7)
         end_date = datetime.utcnow()
-        
+
         count_result = MagicMock()
         count_result.scalar.return_value = 50
-        
+
         data_result = MagicMock()
         data_result.scalars.return_value.all.return_value = []
 
@@ -147,7 +147,7 @@ class TestLoggingService:
         """Test log retrieval with pagination."""
         count_result = MagicMock()
         count_result.scalar.return_value = 200
-        
+
         data_result = MagicMock()
         data_result.scalars.return_value.all.return_value = [MagicMock() for _ in range(20)]
 
@@ -237,7 +237,6 @@ class TestLoggingService:
     async def test_get_log_statistics(self, service, mock_db):
         """Test log statistics retrieval."""
         # Mock different query results
-        call_count = 0
         def create_mock_result(value):
             result = MagicMock()
             result.scalar.return_value = value
@@ -267,7 +266,7 @@ class TestLoggingService:
     async def test_get_log_statistics_with_tenant_filter(self, service, mock_db):
         """Test log statistics with tenant filter."""
         tenant_id = uuid4()
-        
+
         results = [MagicMock() for _ in range(6)]
         for r in results:
             r.scalar.return_value = 10

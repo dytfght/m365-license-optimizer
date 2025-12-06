@@ -3,13 +3,13 @@ Unit tests for Observability Service (LOT 11)
 Tests system metrics collection using psutil.
 """
 import platform
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from src.services.observability_service import (
-    ObservabilityService,
     PSUTIL_AVAILABLE,
+    ObservabilityService,
     get_observability_service,
 )
 
@@ -36,14 +36,14 @@ class TestObservabilityService:
     def test_get_cpu_metrics(self):
         """Test CPU metrics collection."""
         metrics = self.service.get_cpu_metrics()
-        
+
         assert "percent" in metrics
         assert isinstance(metrics["percent"], (int, float))
         assert 0 <= metrics["percent"] <= 100
-        
+
         if "count_physical" in metrics and metrics["count_physical"]:
             assert metrics["count_physical"] >= 1
-        
+
         if "count_logical" in metrics and metrics["count_logical"]:
             assert metrics["count_logical"] >= 1
 
@@ -51,11 +51,11 @@ class TestObservabilityService:
     def test_get_memory_metrics(self):
         """Test memory metrics collection."""
         metrics = self.service.get_memory_metrics()
-        
+
         assert "total_bytes" in metrics
         assert "available_bytes" in metrics
         assert "percent" in metrics
-        
+
         if "error" not in metrics:
             assert metrics["total_bytes"] > 0
             assert metrics["available_bytes"] >= 0
@@ -67,9 +67,9 @@ class TestObservabilityService:
         # Use appropriate path for the OS
         path = "C:\\" if platform.system() == "Windows" else "/"
         metrics = self.service.get_disk_metrics(path)
-        
+
         assert "path" in metrics
-        
+
         if "error" not in metrics:
             assert metrics["total_bytes"] > 0
             assert metrics["free_bytes"] >= 0
@@ -79,7 +79,7 @@ class TestObservabilityService:
     def test_get_network_metrics(self):
         """Test network metrics collection."""
         metrics = self.service.get_network_metrics()
-        
+
         if "error" not in metrics:
             assert "bytes_sent" in metrics
             assert "bytes_recv" in metrics
@@ -90,7 +90,7 @@ class TestObservabilityService:
     def test_get_process_metrics(self):
         """Test process metrics collection."""
         metrics = self.service.get_process_metrics()
-        
+
         if "error" not in metrics:
             assert "pid" in metrics
             assert metrics["pid"] > 0
@@ -100,19 +100,19 @@ class TestObservabilityService:
     def test_get_system_info(self):
         """Test system info collection."""
         info = self.service.get_system_info()
-        
+
         assert "platform" in info
         assert "platform_release" in info
         assert "python_version" in info
         assert "psutil_available" in info
-        
+
         assert info["platform"] in ["Windows", "Linux", "Darwin"]
         assert info["python_version"]  # Non-empty string
 
     def test_get_all_metrics(self):
         """Test comprehensive metrics collection."""
         metrics = self.service.get_all_metrics()
-        
+
         assert "timestamp" in metrics
         assert "uptime_seconds" in metrics
         assert "system" in metrics
@@ -121,10 +121,10 @@ class TestObservabilityService:
         assert "disk" in metrics
         assert "network" in metrics
         assert "process" in metrics
-        
+
         # Verify timestamp is ISO format
         assert "T" in metrics["timestamp"]
-        
+
         # Verify uptime is positive
         assert metrics["uptime_seconds"] >= 0
 
@@ -132,7 +132,7 @@ class TestObservabilityService:
         """Test singleton pattern for observability service."""
         service1 = get_observability_service()
         service2 = get_observability_service()
-        
+
         assert service1 is service2
 
 
@@ -144,7 +144,7 @@ class TestObservabilityServiceWithoutPsutil:
         """Test CPU metrics returns error when psutil unavailable."""
         service = ObservabilityService()
         metrics = service.get_cpu_metrics()
-        
+
         assert "error" in metrics
         assert metrics["percent"] == 0
 
@@ -153,7 +153,7 @@ class TestObservabilityServiceWithoutPsutil:
         """Test memory metrics returns error when psutil unavailable."""
         service = ObservabilityService()
         metrics = service.get_memory_metrics()
-        
+
         assert "error" in metrics
 
     @patch('src.services.observability_service.PSUTIL_AVAILABLE', False)
@@ -161,7 +161,7 @@ class TestObservabilityServiceWithoutPsutil:
         """Test disk metrics returns error when psutil unavailable."""
         service = ObservabilityService()
         metrics = service.get_disk_metrics()
-        
+
         assert "error" in metrics
 
     @patch('src.services.observability_service.PSUTIL_AVAILABLE', False)
@@ -169,7 +169,7 @@ class TestObservabilityServiceWithoutPsutil:
         """Test network metrics returns error when psutil unavailable."""
         service = ObservabilityService()
         metrics = service.get_network_metrics()
-        
+
         assert "error" in metrics
 
     @patch('src.services.observability_service.PSUTIL_AVAILABLE', False)
@@ -177,7 +177,7 @@ class TestObservabilityServiceWithoutPsutil:
         """Test process metrics returns error when psutil unavailable."""
         service = ObservabilityService()
         metrics = service.get_process_metrics()
-        
+
         assert "error" in metrics
 
 
@@ -189,7 +189,7 @@ class TestObservabilityServiceErrorHandling:
         """Test disk metrics with invalid path."""
         service = ObservabilityService()
         metrics = service.get_disk_metrics("/nonexistent/path/that/does/not/exist")
-        
+
         # Should return error instead of raising exception
         assert "error" in metrics or "path" in metrics
 
@@ -198,10 +198,10 @@ class TestObservabilityServiceErrorHandling:
     def test_cpu_metrics_exception_handling(self, mock_cpu):
         """Test CPU metrics handles exceptions gracefully."""
         mock_cpu.side_effect = Exception("Test error")
-        
+
         service = ObservabilityService()
         metrics = service.get_cpu_metrics()
-        
+
         assert "error" in metrics
 
     @pytest.mark.skipif(not PSUTIL_AVAILABLE, reason="psutil not installed")
@@ -209,8 +209,8 @@ class TestObservabilityServiceErrorHandling:
     def test_memory_metrics_exception_handling(self, mock_mem):
         """Test memory metrics handles exceptions gracefully."""
         mock_mem.side_effect = Exception("Test error")
-        
+
         service = ObservabilityService()
         metrics = service.get_memory_metrics()
-        
+
         assert "error" in metrics

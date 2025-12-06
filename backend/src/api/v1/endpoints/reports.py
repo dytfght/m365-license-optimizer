@@ -362,8 +362,9 @@ async def serve_report_file(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Serve the actual report file for download"""
-    from fastapi.responses import FileResponse
     import os
+
+    from fastapi.responses import FileResponse
 
     logger.info(
         "serve_report_file_requested",

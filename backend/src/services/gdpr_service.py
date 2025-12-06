@@ -2,10 +2,9 @@
 GDPR Service for LOT 10: GDPR compliance operations
 Handles consent management, data export, and right to be forgotten.
 """
-import json
 from datetime import datetime
 from io import BytesIO
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -13,13 +12,13 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-from sqlalchemy import select, update, delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.tenant import TenantClient
-from ..models.user import User, LicenseAssignment
-from ..models.usage_metrics import UsageMetrics
 from ..models.recommendation import Recommendation
+from ..models.tenant import TenantClient
+from ..models.usage_metrics import UsageMetrics
+from ..models.user import LicenseAssignment, User
 
 logger = structlog.get_logger(__name__)
 
