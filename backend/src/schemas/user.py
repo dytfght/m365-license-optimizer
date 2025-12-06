@@ -18,6 +18,7 @@ class UserBase(BaseModel):
     department: str | None = Field(None, description="Department")
     job_title: str | None = Field(None, description="Job title")
     office_location: str | None = Field(None, description="Office location")
+    language: str = Field(default="en", description="Language preference (en, fr, etc.)")
 
 
 class UserLogin(BaseModel):

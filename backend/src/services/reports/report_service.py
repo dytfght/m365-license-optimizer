@@ -14,6 +14,7 @@ from ...models.analysis import Analysis
 from ...models.report import Report
 from ...repositories.analysis_repository import AnalysisRepository
 from ...repositories.recommendation_repository import RecommendationRepository
+from ...services.i18n_service import I18nService
 from .chart_generator import ChartGenerator
 from .excel_generator_simple import ExcelGenerator
 from .pdf_generator import PDFGenerator
@@ -31,29 +32,35 @@ class ReportService:
         self.chart_generator = ChartGenerator()
         self.analysis_repo = AnalysisRepository(session)
         self.recommendation_repo = RecommendationRepository(session)
+        self.i18n_service = I18nService()
 
     async def generate_pdf_report(
         self,
         analysis_id: UUID,
         generated_by: str,
+        language: Optional[str] = None,
         tenant_logo_path: Optional[str] = None,
     ) -> Report:
         """Generate executive summary PDF report"""
+
+        lang = language or self.i18n_service.default_language
+        self.i18n_service.set_default_language(lang)
 
         logger.info(
             "generating_pdf_report",
             analysis_id=str(analysis_id),
             generated_by=generated_by,
+            language=lang,
         )
 
         # Get complete analysis with all data
         analysis = await self._get_analysis_with_data(analysis_id)
 
-        # Prepare report data
-        report_data = await self._prepare_report_data(analysis)
+        # Prepare report data with localized content
+        report_data = await self._prepare_localized_report_data(analysis, lang)
 
         # Generate PDF (synchronous operation)
-        pdf_content = self.pdf_generator.generate_executive_summary(report_data)
+        pdf_content = self.pdf_generator.generate_executive_summary(report_data, language=lang)
 
         # Save file
         file_name = f"m365_optimization_{analysis.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
@@ -70,7 +77,10 @@ class ReportService:
             file_path=file_path,
             file_size_bytes=len(pdf_content),
             mime_type="application/pdf",
-            report_metadata=report_data.get("metadata", {}),
+            report_metadata={
+                **report_data.get("metadata", {}),
+                "language": lang,
+            },
             generated_by=generated_by,
             expires_at=datetime.now(timezone.utc) + timedelta(days=90),  # 90 days TTL
         )
@@ -83,30 +93,35 @@ class ReportService:
             "pdf_report_generated_successfully",
             report_id=str(report.id),
             analysis_id=str(analysis_id),
+            language=lang,
             file_size=len(pdf_content),
         )
 
         return report
 
     async def generate_excel_report(
-        self, analysis_id: UUID, generated_by: str
+        self, analysis_id: UUID, generated_by: str, language: Optional[str] = None
     ) -> Report:
         """Generate detailed Excel report"""
+
+        lang = language or self.i18n_service.default_language
+        self.i18n_service.set_default_language(lang)
 
         logger.info(
             "generating_excel_report",
             analysis_id=str(analysis_id),
             generated_by=generated_by,
+            language=lang,
         )
 
         # Get complete analysis with all data
         analysis = await self._get_analysis_with_data(analysis_id)
 
-        # Prepare report data
-        report_data = await self._prepare_report_data(analysis)
+        # Prepare report data with localized content
+        report_data = await self._prepare_localized_report_data(analysis, lang)
 
         # Generate Excel (synchronous operation)
-        excel_content = await self.excel_generator.generate_detailed_excel(report_data)
+        excel_content = await self.excel_generator.generate_detailed_excel(report_data, language=lang)
 
         # Save file
         file_name = f"m365_optimization_detailed_{analysis.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -125,7 +140,10 @@ class ReportService:
             file_path=file_path,
             file_size_bytes=len(excel_content),
             mime_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            report_metadata=report_data.get("metadata", {}),
+            report_metadata={
+                **report_data.get("metadata", {}),
+                "language": lang,
+            },
             generated_by=generated_by,
             expires_at=datetime.now(timezone.utc) + timedelta(days=90),  # 90 days TTL
         )
@@ -138,6 +156,7 @@ class ReportService:
             "excel_report_generated_successfully",
             report_id=str(report.id),
             analysis_id=str(analysis_id),
+            language=lang,
             file_size=len(excel_content),
         )
 
@@ -301,6 +320,68 @@ class ReportService:
                 "tenant_name": tenant_info["name"],
             },
         }
+
+    async def _prepare_localized_report_data(self, analysis: Analysis, language: str) -> Dict[str, Any]:
+        """Prepare localized data for report generation"""
+
+        # Get base report data
+        report_data = await self._prepare_report_data(analysis)
+
+        # Localize KPI titles
+        kpis_localized = {
+            "current_monthly_cost": {
+                "value": report_data["kpis"]["current_monthly_cost"],
+                "label": "",
+            },
+            "target_monthly_cost": {
+                "value": report_data["kpis"]["target_monthly_cost"],
+                "label": "",
+            },
+            "monthly_savings": {
+                "value": report_data["kpis"]["monthly_savings"],
+                "label": self.i18n_service.translate("report.potential_savings", language),
+            },
+            "annual_savings": {
+                "value": report_data["kpis"]["annual_savings"],
+                "label": "",
+            },
+            "savings_percentage": {
+                "value": report_data["kpis"]["savings_percentage"],
+                "label": "",
+            },
+            "total_users": {
+                "value": report_data["kpis"]["total_users"],
+                "label": self.i18n_service.translate("report.total_users", language),
+            },
+            "total_licenses": {
+                "value": 0,  # This could be calculated if needed
+                "label": self.i18n_service.translate("report.total_licenses", language),
+            },
+        }
+
+        # Localize title
+        title = self.i18n_service.translate("report.title.pdf", language)
+
+        # Add localized sections
+        sections = {
+            "user_summary": self.i18n_service.translate("report.section.user_summary", language),
+            "license_summary": self.i18n_service.translate("report.section.license_summary", language),
+            "recommendations": self.i18n_service.translate("report.section.recommendations", language),
+            "cost_analysis": self.i18n_service.translate("report.section.cost_analysis", language),
+        }
+
+        # IMPORTANT: Keep original KPI structure flat for backward compatibility
+        # Add localized data separately without modifying original KPIs
+        report_data["title"] = title
+        report_data["language"] = language
+        report_data["sections"] = sections
+        
+        # Add localized labels (but keep original KPI values flat)
+        report_data["kpi_labels"] = {
+            key: kpis_localized[key]["label"] for key in kpis_localized
+        }
+
+        return report_data
 
     def _calculate_savings_percentage(self, summary: Dict[str, Any]) -> float:
         """Calculate savings percentage"""

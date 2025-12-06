@@ -1,0 +1,319 @@
+"""
+Internationalization (i18n) Service
+
+Provides translation and localization utilities for backend messages,
+error handling, and report content generation.
+"""
+import json
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional
+from babel.dates import format_datetime as babel_format_datetime
+from babel.numbers import format_currency as babel_format_currency, format_decimal as babel_format_decimal
+
+# Translation dictionaries
+# In a production app, these would be loaded from JSON files
+translations: Dict[str, Dict[str, str]] = {
+    "en": 
+        "report.title.excel_summary": "Microsoft 365 License Optimization Summary",
+        "report.generated_at": "Report generated",
+        "report.kpi_section": "Key Performance Indicators",
+        "report.current_monthly_cost": "Current Monthly Cost",
+        "report.target_monthly_cost": "Target Monthly Cost",
+        "report.monthly_savings": "Monthly Savings",
+        "report.annual_savings": "Annual Savings",
+        "report.savings_percentage": "Savings Percentage",
+        "report.title.pdf_summary": "Microsoft 365 License Optimization Report Summary",
+        "period": "Period",{
+        # Error messages
+        "users.not_found": "User not found",
+        "users.sync_failed": "Failed to sync users from Microsoft Graph",
+        "licenses.not_found": "License not found",
+        "licenses.sync_failed": "Failed to sync licenses",
+        "tenant.not_found": "Tenant not found",
+        "tenant.sync_failed": "Failed to sync tenant data",
+        "analysis.not_found": "Analysis not found",
+        "analysis.failed": "Failed to run analysis",
+        "report.generation_failed": "Failed to generate report",
+        "auth.invalid_credentials": "Invalid credentials",
+        "auth.unauthorized": "Unauthorized access",
+        "generic.error": "An error occurred",
+        "success.created": "Resource created successfully",
+        "success.updated": "Resource updated successfully",
+        "success.deleted": "Resource deleted successfully",
+        # Report content
+        "report.title.pdf": "License Optimization Report",
+        "report.title.excel": "Detailed License Analysis",
+        "report.section.user_summary": "User Summary",
+        "report.section.license_summary": "License Summary",
+        "report.section.recommendations": "Recommendations",
+        "report.section.cost_analysis": "Cost Analysis",
+        "report.total_users": "Total Users",
+        "report.active_users": "Active Users",
+        "report.total_licenses": "Total Licenses",
+        "report.total_cost": "Total Cost",
+        "report.cost_before": "Cost Before Optimization",
+        "report.cost_after": "Cost After Optimization",
+        "report.potential_savings": "Potential Savings",
+        "report.user_principal_name": "User Principal Name",
+        "report.display_name": "Display Name",
+        "report.department": "Department",
+        "report.job_title": "Job Title",
+        "report.assigned_licenses": "Assigned Licenses",
+        "report.usage_score": "Usage Score",
+        "report.recommendation": "Recommendation",
+        "report.estimated_savings": "Estimated Savings",
+        "report.sku_name": "SKU Name",
+        "report.assigned_count": "Assigned Count",
+        "report.active_count": "Active Count",
+        "report.unit_price": "Unit Price",
+        "report.total_price": "Total Price",
+        # Date formats
+        "date.format.short": "MM/dd/yyyy",
+        "date.format.long": "MMMM dd, yyyy",
+        "date.format.full": "MMMM dd, yyyy HH:mm:ss",
+        # Currency
+        "currency.symbol": "$",
+        "currency.code": "USD",
+    },
+    "fr": 
+        "report.title.excel_summary": "SYNTHÈSE - ANALYSE D'OPTIMISATION MICROSOFT 365",
+        "report.generated_at": "Date de génération",
+        "report.kpi_section": "INDICATEURS CLÉS",
+        "report.current_monthly_cost": "Coût actuel mensuel",
+        "report.target_monthly_cost": "Coût cible mensuel",
+        "report.monthly_savings": "Économie mensuelle",
+        "report.annual_savings": "Économie annuelle",
+        "report.savings_percentage": "Taux d'économie",
+        "report.title.pdf_summary": "RAPPORT D'OPTIMISATION MICROSOFT 365",
+        "period": "Période",{
+        # Error messages
+        "users.not_found": "Utilisateur non trouvé",
+        "users.sync_failed": "Échec de la synchronisation des utilisateurs depuis Microsoft Graph",
+        "licenses.not_found": "Licence non trouvée",
+        "licenses.sync_failed": "Échec de la synchronisation des licences",
+        "tenant.not_found": "Tenant non trouvé",
+        "tenant.sync_failed": "Échec de la synchronisation des données du tenant",
+        "analysis.not_found": "Analyse non trouvée",
+        "analysis.failed": "Échec de l'analyse",
+        "report.generation_failed": "Échec de la génération du rapport",
+        "auth.invalid_credentials": "Identifiants invalides",
+        "auth.unauthorized": "Accès non autorisé",
+        "generic.error": "Une erreur est survenue",
+        "success.created": "Ressource créée avec succès",
+        "success.updated": "Ressource mise à jour avec succès",
+        "success.deleted": "Ressource supprimée avec succès",
+        # Report content
+        "report.title.pdf": "Rapport d'Optimisation des Licences",
+        "report.title.excel": "Analyse Détaillée des Licences",
+        "report.section.user_summary": "Résumé des Utilisateurs",
+        "report.section.license_summary": "Résumé des Licences",
+        "report.section.recommendations": "Recommandations",
+        "report.section.cost_analysis": "Analyse des Coûts",
+        "report.total_users": "Nombre Total d'Utilisateurs",
+        "report.active_users": "Utilisateurs Actifs",
+        "report.total_licenses": "Nombre Total de Licences",
+        "report.total_cost": "Coût Total",
+        "report.cost_before": "Coût Avant Optimisation",
+        "report.cost_after": "Coût Après Optimisation",
+        "report.potential_savings": "Économies Potentielles",
+        "report.user_principal_name": "Nom d'Utilisateur Principal",
+        "report.display_name": "Nom d'Affichage",
+        "report.department": "Département",
+        "report.job_title": "Titre du Poste",
+        "report.assigned_licenses": "Licences Assignées",
+        "report.usage_score": "Score d'Utilisation",
+        "report.recommendation": "Recommandation",
+        "report.estimated_savings": "Économies Estimées",
+        "report.sku_name": "Nom du SKU",
+        "report.assigned_count": "Nombre Assigné",
+        "report.active_count": "Nombre Actif",
+        "report.unit_price": "Prix Unitaire",
+        "report.total_price": "Prix Total",
+        # Date formats
+        "date.format.short": "dd/MM/yyyy",
+        "date.format.long": "dd MMMM yyyy",
+        "date.format.full": "dd/MM/yyyy HH:mm:ss",
+        # Currency
+        "currency.symbol": "€",
+        "currency.code": "EUR",
+    }
+}
+
+
+class I18nService:
+    """Service providing internationalization utilities"""
+
+    def __init__(self, default_language: str = "en"):
+        self.default_language = default_language
+
+    def translate(self, key: str, language: Optional[str] = None, **kwargs: Any) -> str:
+        """
+        Translate a message key to the specified language
+
+        Args:
+            key: Translation key (e.g., 'users.not_found')
+            language: Target language ('en', 'fr', etc.). If None, uses default_language
+            **kwargs: Additional format arguments for the translation string
+
+        Returns:
+            Translated string
+        """
+        lang = language or self.default_language
+
+        # Get translation dictionary for language
+        lang_translations = translations.get(lang, translations[self.default_language])
+
+        # Get the translated string
+        translated = lang_translations.get(key, key)
+
+        # Apply formatting if additional arguments provided
+        if kwargs:
+            try:
+                return translated.format(**kwargs)
+            except KeyError:
+                # Return unformatted string if formatting fails
+                return translated
+
+        return translated
+
+    def format_date(self, date: datetime, language: Optional[str] = None, format_type: str = "short") -> str:
+        """
+        Format a date according to locale settings
+
+        Args:
+            date: DateTime object to format
+            language: Target language code
+            format_type: Format type ('short', 'long', 'full')
+
+        Returns:
+            Formatted date string
+        """
+        lang = language or self.default_language
+
+        # Map language codes to Babel locale codes
+        locale_map = {
+            "en": "en_US",
+            "fr": "fr_FR",
+        }
+        locale = locale_map.get(lang, "en_US")
+
+        # Format using Babel
+        try:
+            if format_type == "short":
+                return babel_format_datetime(date, "short", locale=locale)
+            elif format_type == "long":
+                return babel_format_datetime(date, "long", locale=locale)
+            elif format_type == "full":
+                return babel_format_datetime(date, "full", locale=locale)
+            else:
+                return date.strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            # Fallback to simple formatting
+            return date.strftime("%Y-%m-%d %H:%M:%S")
+
+    def format_currency(self, amount: float, language: Optional[str] = None, currency: Optional[str] = None) -> str:
+        """
+        Format a currency amount according to locale settings
+
+        Args:
+            amount: Currency amount
+            language: Target language code
+            currency: Currency code (USD, EUR, etc.)
+
+        Returns:
+            Formatted currency string
+        """
+        lang = language or self.default_language
+
+        # Get currency settings for language
+        lang_translations = translations.get(lang, translations[self.default_language])
+        default_currency = lang_translations.get("currency.code", "USD")
+
+        currency_code = currency or default_currency
+
+        # Map language codes to Babel locale codes
+        locale_map = {
+            "en": "en_US",
+            "fr": "fr_FR",
+        }
+        locale = locale_map.get(lang, "en_US")
+
+        try:
+            return babel_format_currency(amount, currency_code, locale=locale)
+        except Exception:
+            # Fallback formatting
+            return f"{amount:.2f} {currency_code}"
+
+    def format_number(self, number: float, language: Optional[str] = None, decimal_places: int = 2) -> str:
+        """
+        Format a number according to locale settings
+
+        Args:
+            number: Number to format
+            language: Target language code
+            decimal_places: Number of decimal places
+
+        Returns:
+            Formatted number string
+        """
+        lang = language or self.default_language
+
+        # Map language codes to Babel locale codes
+        locale_map = {
+            "en": "en_US",
+            "fr": "fr_FR",
+        }
+        locale = locale_map.get(lang, "en_US")
+
+        try:
+            format_string = f"#,##0.{str(0).zfill(decimal_places)}"
+            return babel_format_decimal(number, format=format_string, locale=locale)
+        except Exception:
+            # Fallback formatting
+            return f"{number:,.{decimal_places}f}"
+
+    def get_system_language(self, fallback: str = "en") -> str:
+        """
+        Get system default language (for backend processes)
+
+        Args:
+            fallback: Fallback language if detection fails
+
+        Returns:
+            Language code
+        """
+        # For backend services, always use English for logs/admin
+        return "en"
+
+    def set_default_language(self, language: str) -> None:
+        """
+        Set default language for the service
+
+        Args:
+            language: Language code to set as default
+        """
+        if language in translations:
+            self.default_language = language
+
+    @staticmethod
+    def load_translations_from_file(file_path: Path) -> Dict[str, str]:
+        """
+        Load translations from a JSON file
+
+        Args:
+            file_path: Path to JSON translation file
+
+        Returns:
+            Translation dictionary
+        """
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            # Return empty dictionary if loading fails
+            return {}
+
+
+# Global i18n service instance
+i18n_service = I18nService()

@@ -322,9 +322,9 @@ class ExcelGenerator:
         )
 
         # For testing, just add some sample data
-        ws["A3"] = i18n_service.translate("report.data_type", language)
-        ws["B3"] = i18n_service.translate("report.value", language)
-        ws["C3"] = i18n_service.translate("report.date", language)
+        ws["A3"] = "Type de données"
+        ws["B3"] = "Valeur"
+        ws["C3"] = "Date"
 
         sample_data = [
             [

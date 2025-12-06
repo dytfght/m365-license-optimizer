@@ -1,5 +1,5 @@
 """
-PDF Generator - Fixed version without Calibri fonts
+PDF Generator - Fixed version with language parameter
 """
 
 import io
@@ -14,14 +14,15 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-import structlog
-
+from src.core.logging import get_logger
 from src.services.i18n_service import i18n_service
 
-logger = structlog.get_logger(__name__)
+logger = get_logger()
 
 
 class PDFGenerator:
@@ -36,8 +37,20 @@ class PDFGenerator:
             "white": colors.white,
             "text": HexColor("#323130"),
         }
-        # Use standard Helvetica fonts - no external fonts needed
-        logger.debug("pdf_generator_initialized", fonts="Helvetica (standard)")
+
+        # Register Calibri font if available
+        try:
+            pdfmetrics.registerFont(TTFont("Calibri", "calibri.ttf"))
+            pdfmetrics.registerFont(TTFont("Calibri-Bold", "calibrib.ttf"))
+        except FileNotFoundError:
+            pass  # Fallback to Helvetica
+
+    def _get_font_family(self):
+        """Get available font family"""
+        try:
+            return TTFont
+        except:
+            return None
 
     def generate_executive_summary(self, data: Dict[str, Any], language: str = "en") -> bytes:
         """Generate complete executive summary PDF"""
@@ -220,7 +233,7 @@ class PDFGenerator:
         recommendations = data.get("top_recommendations", [])
 
         if not recommendations:
-            recommendations_table = Table(
+            no_data_table = Table(
                 [[i18n_service.translate("report.no_recommendations_available", language)]],
                 colWidths=[17 * cm],
                 rowHeights=[1.5 * cm],

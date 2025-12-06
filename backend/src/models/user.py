@@ -63,6 +63,14 @@ class User(Base, UUIDMixin, TimestampMixin):
     job_title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     office_location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
+    # Language preference for i18n
+    language: Mapped[str] = mapped_column(
+        String(5),
+        default="en",
+        nullable=False,
+        comment="User language preference (fr, en, etc.)",
+    )
+
     # Group memberships (filtered list)
     member_of_groups: Mapped[Optional[list]] = mapped_column(
         JSONB,

@@ -6,7 +6,7 @@ from typing import Annotated, Any, Dict, Optional
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....core.database import get_db
@@ -17,6 +17,7 @@ from ....schemas.report import (
     ReportResponse,
 )
 from ....services.reports.report_service import ReportService
+from ....services.i18n_service import i18n_service
 from ...deps import get_current_user
 
 logger = structlog.get_logger(__name__)
@@ -35,22 +36,41 @@ async def generate_pdf_report(
     analysis_id: UUID,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    accept_language: str = Header("en", alias="Accept-Language"),
 ) -> ReportResponse:
     """Generate PDF executive summary report"""
+
+    # Determine language preference - USE ONLY USER'S SAVED PREFERENCE FROM DATABASE
+    # Ignore Accept-Language header completely to respect user's choice
+    # This ensures reports are in the same language as the UI
+    language = current_user.language
+    
+    logger.debug(
+        "language_selected_for_report",
+        user_preference=current_user.language,
+        header_provided=accept_language,
+        final_language=language,
+        message="Using user preference from database, ignoring header"
+    )
 
     logger.info(
         "generate_pdf_report_requested",
         analysis_id=str(analysis_id),
         user_email=current_user.user_principal_name,
+        language=language,
+        user_preference=current_user.language,
+        header_used=accept_language,
     )
 
     try:
         # Create report service
         report_service = ReportService(db)
 
-        # Generate PDF report
+        # Generate PDF report with language preference
         report = await report_service.generate_pdf_report(
-            analysis_id=analysis_id, generated_by=current_user.user_principal_name
+            analysis_id=analysis_id,
+            generated_by=current_user.user_principal_name,
+            language=language,
         )
 
         # Convert to response model using the helper method
@@ -60,7 +80,7 @@ async def generate_pdf_report(
         logger.warning("analysis_not_found", analysis_id=str(analysis_id), error=str(e))
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Analysis not found: {str(e)}",
+            detail=i18n_service.translate("analysis.not_found", language, analysis_id=str(analysis_id)),
         )
     except Exception as e:
         logger.error(
@@ -68,7 +88,7 @@ async def generate_pdf_report(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate PDF report: {str(e)}",
+            detail=i18n_service.translate("report.generation_failed", language),
         )
 
 
@@ -83,22 +103,41 @@ async def generate_excel_report(
     analysis_id: UUID,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    accept_language: str = Header("en", alias="Accept-Language"),
 ) -> ReportResponse:
     """Generate detailed Excel report"""
+
+    # Determine language preference - USE ONLY USER'S SAVED PREFERENCE FROM DATABASE
+    # Ignore Accept-Language header completely to respect user's choice
+    # This ensures reports are in the same language as the UI
+    language = current_user.language
+    
+    logger.debug(
+        "language_selected_for_report",
+        user_preference=current_user.language,
+        header_provided=accept_language,
+        final_language=language,
+        message="Using user preference from database, ignoring header"
+    )
 
     logger.info(
         "generate_excel_report_requested",
         analysis_id=str(analysis_id),
         user_email=current_user.user_principal_name,
+        language=language,
+        user_preference=current_user.language,
+        header_used=accept_language,
     )
 
     try:
         # Create report service
         report_service = ReportService(db)
 
-        # Generate Excel report
+        # Generate Excel report with language preference
         report = await report_service.generate_excel_report(
-            analysis_id=analysis_id, generated_by=current_user.user_principal_name
+            analysis_id=analysis_id,
+            generated_by=current_user.user_principal_name,
+            language=language,
         )
 
         # Convert to response model using the helper method

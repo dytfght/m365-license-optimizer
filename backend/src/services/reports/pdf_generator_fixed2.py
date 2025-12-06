@@ -220,7 +220,7 @@ class PDFGenerator:
         recommendations = data.get("top_recommendations", [])
 
         if not recommendations:
-            recommendations_table = Table(
+            no_data_table = Table(
                 [[i18n_service.translate("report.no_recommendations_available", language)]],
                 colWidths=[17 * cm],
                 rowHeights=[1.5 * cm],
